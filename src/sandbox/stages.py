@@ -24,6 +24,7 @@ Each Stage should be a Class, and should inherit from one of
 from typing import TYPE_CHECKING
 
 from cpg_flow.stage import SequencingGroupStage, stage
+
 from sandbox.jobs.run_deepvariant import run
 
 if TYPE_CHECKING:
@@ -37,7 +38,8 @@ if TYPE_CHECKING:
 class RunDeepVariant(SequencingGroupStage):
     def expected_outputs(self, sequencing_group: 'SequencingGroup') -> 'Path':
         # self.prefix() is a more concise shortcut for multicohort.analysis_dataset_bucket/ StageName / Hash
-        return sequencing_group.dataset.prefix(category='tmp') / self.name / f'{sequencing_group.id}.g.vcf.gz'
+        return {'gvcf': sequencing_group.dataset.prefix(category='tmp') / self.name / f'{sequencing_group.id}.g.vcf.gz',
+                'vcf': sequencing_group.dataset.prefix(category='tmp') / self.name / f'{sequencing_group.id}.vcf.gz'}
 
     def queue_jobs(self, sequencing_group: 'SequencingGroup', inputs: 'StageInput') -> 'StageOutput':  # noqa: ARG002
         """
@@ -47,7 +49,7 @@ class RunDeepVariant(SequencingGroupStage):
         outputs = self.expected_outputs(sequencing_group)
 
         # generate the output
-        j = run(str(outputs))
+        j = run(str(outputs['vcf']), str(outputs['gvcf']))
 
         # return the jobs and outputs
         return self.make_outputs(sequencing_group, data=outputs, jobs=j)

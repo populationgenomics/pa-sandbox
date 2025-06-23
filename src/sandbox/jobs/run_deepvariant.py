@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from hailtop.batch.job import Job
 
 
-def run(output_path: str) -> 'Job':
+def run(output_vcf: str, output_gvcf: str) -> 'Job':
     """
     This is a simple example of a job that writes a statement to a file.
 
@@ -56,15 +56,16 @@ def run(output_path: str) -> 'Job':
         --ref=${{INPUT_DIR}}/ucsc.hg19.chr20.unittest.fasta \
         --reads=${{INPUT_DIR}}/NA12878_S1.chr20.10_10p1mb.bam \
         --regions "chr20:10,000,000-10,010,000" \
-        --output_vcf=/output/output.vcf.gz \
-        --output_gvcf={j.outfile} \
+        --output_vcf={j.outVcf} \
+        --output_gvcf={j.outGvcf} \
         --intermediate_results_dir /output/intermediate_results_dir \
         --num_shards=1
         """,
     )
 
     # write the output to the expected location
-    get_batch().write_output(j.outfile, output_path)
+    get_batch().write_output(j.outVcf, output_vcf)
+    get_batch().write_output(j.outGvcf, output_gvcf)
 
     # return the job
     return j
