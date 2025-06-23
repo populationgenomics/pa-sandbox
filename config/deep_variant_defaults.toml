@@ -1,0 +1,13 @@
+# this is a template for the config file
+# demonstrating some of the common options used in cpg-flow
+[workflow]
+name = 'deep_variant'
+input_cohorts = ['COH2308']
+sequencing_type = 'genome'
+last_states = ['RunDeepVariant']
+
+# used to make sure we don't repeat previously completed stages
+check_expected_outputs = true
+
+# the method to register outputs, can be missing - will not generate metamist analysis entries
+status_reporter = 'metamist'
