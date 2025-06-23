@@ -14,7 +14,7 @@ from argparse import ArgumentParser
 from cpg_flow.workflow import run_workflow
 
 # TODO(you) import your own Stages
-from deep_variant.stages import RunDeepVariant
+from sandbox.stages import RunDeepVariant
 
 
 def cli_main():

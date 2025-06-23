@@ -1,10 +1,14 @@
 # this is a template for the config file
 # demonstrating some of the common options used in cpg-flow
 [workflow]
+
+# TODO(you): update this to reflect the workflow's name
 name = 'sandbox'
+
+# mandatory fields for cpg-flow, not populated by analysis-runner
+# TODO(you): update this to contain a real cohort for the given sequencing type
 input_cohorts = ['COH2308']
 sequencing_type = 'genome'
-last_states = ['RunDeepVariant']
 
 # used to make sure we don't repeat previously completed stages
 check_expected_outputs = true

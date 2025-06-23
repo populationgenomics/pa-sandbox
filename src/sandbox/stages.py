@@ -24,8 +24,7 @@ Each Stage should be a Class, and should inherit from one of
 from typing import TYPE_CHECKING
 
 from cpg_flow.stage import SequencingGroupStage, stage
-
-from deep_variant.jobs.run_deepvariant import run
+from sandbox.jobs.run_deepvariant import run
 
 if TYPE_CHECKING:
     # Path is a classic return type for a Stage, and is a shortcut for [CloudPath | pathlib.Path]
