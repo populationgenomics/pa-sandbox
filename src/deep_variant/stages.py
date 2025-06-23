@@ -52,35 +52,3 @@ class RunDeepVariant(SequencingGroupStage):
 
         # return the jobs and outputs
         return self.make_outputs(sequencing_group, data=outputs, jobs=j)
-
-
-# @stage(required_stages=[RunDeepVariant])
-# class PrintPreviousJobOutputInAPythonJob(MultiCohortStage):
-#     """
-#     This is a stage that cats the output of a previous stage to the logs.
-#     This uses a method imported from a job file, run as a PythonJob.
-#     """
-
-#     def expected_outputs(self, multicohort: 'MultiCohort') -> 'Path':
-#         return multicohort.analysis_dataset.prefix(category='tmp') / self.name / 'cat.txt'
-
-#     def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
-#         # get the previous stage's output
-#         previous_stage = inputs.as_str(multicohort, DoSomethingGenericWithBash)
-
-#         # localise the file
-#         local_input = get_batch().read_input(previous_stage)
-
-#         # generate the expected output path
-#         outputs = self.expected_outputs(multicohort)
-
-#         # run the PythonJob
-#         job = get_batch().new_python_job(f'Read {previous_stage}')
-#         job.image(config_retrieve(['workflow', 'driver_image']))
-#         pyjob_output = job.call(
-#             print_file_contents,
-#             local_input,
-#         )
-#         get_batch().write_output(pyjob_output.as_str(), str(outputs))
-
-#         return self.make_outputs(multicohort, data=outputs, jobs=job)
