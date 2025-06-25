@@ -4,7 +4,7 @@
 name = 'sandbox'
 input_cohorts = ['COH2308']
 sequencing_type = 'genome'
-last_states = ['RunDeepVariant']
+last_states = ['RunPangenomeAwareDeepVariant']
 
 # used to make sure we don't repeat previously completed stages
 check_expected_outputs = true

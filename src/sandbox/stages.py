@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 
 @stage()
-class RunDeepVariant(SequencingGroupStage):
+class RunPangenomeAwareDeepVariant(SequencingGroupStage):
     def expected_outputs(self, sequencing_group: 'SequencingGroup') -> 'Path':
         # self.prefix() is a more concise shortcut for multicohort.analysis_dataset_bucket/ StageName / Hash
         return {'gvcf': sequencing_group.dataset.prefix(category='tmp') / self.name / f'{sequencing_group.id}.g.vcf.gz',
@@ -49,7 +49,12 @@ class RunDeepVariant(SequencingGroupStage):
         outputs = self.expected_outputs(sequencing_group)
 
         # generate the output
-        j = run(str(outputs['vcf']), str(outputs['gvcf']))
+        j = run(
+            output_vcf=str(outputs['vcf']),
+            output_gvcf=str(outputs['gvcf']),
+            sequencing_group_name=str(sequencing_group.id),
+            cram_path=sequencing_group.cram or sequencing_group.make_cram_path(),
+            )
 
         # return the jobs and outputs
         return self.make_outputs(sequencing_group, data=outputs, jobs=j)

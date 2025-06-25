@@ -4,14 +4,18 @@ A job should contain the logic for a single Stage
 
 from typing import TYPE_CHECKING
 
+from cpg_flow.filetypes import CramPath
 from cpg_utils.config import image_path
-from cpg_utils.hail_batch import get_batch
+from cpg_utils.hail_batch import fasta_res_group, get_batch
 
 if TYPE_CHECKING:
     from hailtop.batch.job import Job
 
 
-def run(output_vcf: str, output_gvcf: str) -> 'Job':
+def run(output_vcf: str,
+        output_gvcf: str,
+        sequencing_group_name: str,
+        cram_path: CramPath) -> 'Job':
     """
     This is a simple example of a job that writes a statement to a file.
 
@@ -22,50 +26,68 @@ def run(output_vcf: str, output_gvcf: str) -> 'Job':
     Returns:
         the resulting job
     """
-
+    b = get_batch()
     # create a job
-    j = get_batch().new_job('DeepVariant')
+    j = b.new_job('Pangenome Aware DeepVariant')
 
     # choose an image to run this job in (default is bare ubuntu)
-    j.image(image_path(['deepvariant']))
+    j.image(image_path('deepvariant_pangenome_aware'))
+    j.memory('96Gi')
+    j.storage('50Gi')
+    j.declare_resource_group(
+        output_gvcf={
+            'g.vcf.gz': '{root}-' + sequencing_group_name + '.g.vcf.gz',
+            'g.vcf.gz.tbi': '{root}-' + sequencing_group_name + '.g.vcf.gz.tbi',
+        },
+    )
+    j.declare_resource_group(
+        output_vcf={
+            'vcf.gz': '{root}-' + sequencing_group_name + '.vcf.gz',
+            'vcf.gz.tbi': '{root}-' + sequencing_group_name + '.vcf.gz.tbi',
+        },
+    )
 
+    reference = fasta_res_group(b)
     # copy test data
     j.command(
-         f"""
-        INPUT_DIR="$BATCH_TMPDIR/quickstart-testdata"
-        CHECKPOINT_DIR="$BATCH_TMPDIR/checkpoint"
-        DATA_HTTP_DIR="https://storage.googleapis.com/deepvariant/quickstart-testdata"
+        f"""
+        set -ex
+        CRAM=$BATCH_TMPDIR/{sequencing_group_name}.cram
+        CRAI=$BATCH_TMPDIR/{sequencing_group_name}.cram.crai
 
-        mkdir -p ${{INPUT_DIR}}
-        mkdir -p ${{CHECKPOINT_DIR}}
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/NA12878_S1.chr20.10_10p1mb.bam"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/NA12878_S1.chr20.10_10p1mb.bam.bai"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/test_nist.b37_chr20_100kbp_at_10mb.bed"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/test_nist.b37_chr20_100kbp_at_10mb.vcf.gz"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/test_nist.b37_chr20_100kbp_at_10mb.vcf.gz.tbi"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/ucsc.hg19.chr20.unittest.fasta"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/ucsc.hg19.chr20.unittest.fasta.fai"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/ucsc.hg19.chr20.unittest.fasta.gz"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/ucsc.hg19.chr20.unittest.fasta.gz.fai"
-        wget -P ${{INPUT_DIR}} "${{DATA_HTTP_DIR}}/ucsc.hg19.chr20.unittest.fasta.gz.gzi"
+        # Retrying copying to avoid google bandwidth limits
+        retry_gs_cp {cram_path.path} $CRAM
+        retry_gs_cp {cram_path.index_path} $CRAI
+        ls -l $CRAM
+        ls -l $CRAI
 
-        # Run make_examples
-        /opt/deepvariant/bin/run_deepvariant \
-        --model_type=WGS \
-        --vcf_stats_report=true \
-        --ref=${{INPUT_DIR}}/ucsc.hg19.chr20.unittest.fasta \
-        --reads=${{INPUT_DIR}}/NA12878_S1.chr20.10_10p1mb.bam \
-        --regions "chr20:10,000,000-10,010,000" \
-        --output_vcf={j.outVcf} \
-        --output_gvcf={j.outGvcf} \
-        --intermediate_results_dir /output/intermediate_results_dir \
-        --num_shards=1
+        ls -l ${{BATCH_TMPDIR}}
+
+        HTTPDIR=https://s3-us-west-2.amazonaws.com/human-pangenomics/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.1-mc-grch38
+        curl -L "${{HTTPDIR}}/hprc-v1.1-mc-grch38.gbz" -o ${{BATCH_TMPDIR}}/hprc-v1.1-mc-grch38.gbz
+
+        # Run pangenome-aware DeepVariant
+        mkdir -p ${{BATCH_TMPDIR}}/intermediate_results_dir
+        pwd
+        ls -l
+        ls -l /opt
+        ls -l /opt/deepvariant/
+        ls -l /opt/deepvariant/bin/
+        /opt/deepvariant/bin/run_pangenome_aware_deepvariant \
+        --model_type WGS \
+        --ref {reference.base} \
+        --reads $BATCH_TMPDIR/{sequencing_group_name}.cram  \
+        --pangenome ${{BATCH_TMPDIR}}/hprc-v1.1-mc-grch38.gbz \
+        --output_vcf {j.output_vcf['vcf.gz']} \
+        --output_gvcf {j.output_gvcf['g.vcf.gz']} \
+        --num_shards $(nproc) \
+        --intermediate_results_dir ${{BATCH_TMPDIR}}/intermediate_results_dir
         """,
     )
 
     # write the output to the expected location
-    get_batch().write_output(j.outVcf, output_vcf)
-    get_batch().write_output(j.outGvcf, output_gvcf)
+    get_batch().write_output(j.output_vcf, output_vcf.replace('.vcf.gz', ''))
+    get_batch().write_output(j.output_gvcf, output_gvcf.replace('.g.vcf.gz', ''))
 
     # return the job
     return j
