@@ -31,7 +31,7 @@ def run(output_vcf: str,
     j = b.new_job('Pangenome Aware DeepVariant')
 
     # choose an image to run this job in (default is bare ubuntu)
-    j.image(image_path('deepvariant_pangenome_aware'))
+    j.image(image_path(['deepvariant_pangenome_aware', '1.9.0-1', 'dev']))
     j.memory('96Gi')
     j.storage('50Gi')
     j.declare_resource_group(
