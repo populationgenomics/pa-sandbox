@@ -8,6 +8,7 @@ COPY LICENSE pyproject.toml README.md ./
 COPY src src/
 # COPY third_party third_party/
 
+RUN apt-get update && apt-get install -y git
+
 RUN pip install . \
-    && git \
     && pip install typing-extensions==4.12.0
