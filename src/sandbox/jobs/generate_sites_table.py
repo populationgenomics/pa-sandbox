@@ -16,11 +16,11 @@ def _initalise_sites_table_job(cohort: Cohort) -> PythonJob:
 
 def generate_sites_table(cohort: Cohort, chromosome: str) -> PythonJob:
     job: PythonJob = _initalise_sites_table_job(cohort=cohort)
-    job.call(_run, chromosome=chromosome)
+    job.call(_run, cohort, chromosome=chromosome)
     return job
 
 
-def _run(chromosome: str) -> None:
+def _run(cohort: Cohort, chromosome: str) -> None:
     vds_path: str = config_retrieve(['generate_sites_table', 'vds_path'])
     exomes: bool = config_retrieve(['generate_sites_table', 'exomes'])
     intersected_bed_file: str = config_retrieve(['generate_sites_table', 'intersected_bed_file'])
@@ -131,7 +131,7 @@ def _run(chromosome: str) -> None:
         )
 
     print('Writing sites table pre-LD pruning')
-    checkpoint_path = output_path(f'cohort_dense_mt_{"exome_" if exomes else ""}pre_pruning.mt', 'default')
+    checkpoint_path = output_path(f'cohort{cohort.name}_dense_mt_{"exome_" if exomes else ""}pre_pruning.mt', 'tmp')
     cohort_dense_mt = cohort_dense_mt.checkpoint(checkpoint_path, overwrite=True)
     print('Done writing sites table pre-LD pruning')
 
