@@ -10,7 +10,7 @@ description='Run DeepVariant on a cohort of samples using cpg-flow'
 readme = "README.md"
 # currently cpg-flow is pinned to this version
 requires-python = ">=3.10,<3.11"
-version='0.1.0'
+version='0.1.1'
 license={ "file" = "LICENSE" }
 classifiers=[
     'Environment :: Console',
@@ -127,14 +127,14 @@ filename = "Dockerfile"
 search = "ENV VERSION={current_version}"
 replace = "ENV VERSION={new_version}"
 
-[[tool.bumpversion.files]]
-filename = "config/sandbox_defaults.toml"
-regex = true
-parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)-.*"
-search = "sandbox:{current_version}"
-replace = "sandbox:{new_version}"
+# [[tool.bumpversion.files]]
+# filename = "config/sandbox_defaults.toml"
+# regex = true
+# parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)-.*"
+# search = "sandbox:{current_version}"
+# replace = "sandbox:{new_version}"
 
-[[tool.bumpversion.files]]
-filename = "README.md"
-search = "{current_version}"
-replace = "{new_version}"
+# [[tool.bumpversion.files]]
+# filename = "README.md"
+# search = "{current_version}"
+# replace = "{new_version}"
