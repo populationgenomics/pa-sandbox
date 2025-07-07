@@ -96,7 +96,9 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
         for interval in intervals
     ]
 
-    vds: VariantDataset = hl.vds.read_vds(str(vds_path), intervals=intervals)
+    # Read VDS then filter, to avoid ref blocks that span intervals being dropped silently
+    vds: VariantDataset = hl.vds.read_vds(str(vds_path))
+    vds = hl.vds.filter_intervals(vds, intervals, split_reference_blocks=False)
 
     # Filter to variant sites that pass VQSR
     passed_variants = external_sites_table.filter(external_sites_table.info.AS_FilterStatus == 'PASS')
