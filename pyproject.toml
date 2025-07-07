@@ -108,7 +108,7 @@ ignore = [
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 
 [tool.bumpversion]
-current_version = "2.0.2"
+current_version = "0.1.1"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 allow_dirty = false
