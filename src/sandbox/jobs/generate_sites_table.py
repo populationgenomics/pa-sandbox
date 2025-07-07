@@ -127,8 +127,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
         ),
     )
     cohort_dense_mt = cohort_dense_mt.filter_rows(
-        (hl.len(cohort_dense_mt.alleles) == 2)  # noqa: PLR2004
-        & (cohort_dense_mt.locus.in_autosome())
+        (cohort_dense_mt.locus.in_autosome())
         & (cohort_dense_mt.variant_qc.AF[1] > 0.01)  # noqa: PLR2004
         & (cohort_dense_mt.variant_qc.call_rate > 0.99)  # noqa: PLR2004
         & (cohort_dense_mt.IB.f_stat > -0.80),  # noqa: PLR2004
