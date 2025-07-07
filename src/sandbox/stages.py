@@ -33,7 +33,6 @@ from sandbox.jobs.run_deepvariant import run
 
 if TYPE_CHECKING:
     # Path is a classic return type for a Stage, and is a shortcut for [CloudPath | pathlib.Path]
-    from cpg_flow.stage import StageInput, StageOutput
     from cpg_flow.targets import SequencingGroup
     from cpg_utils import Path
     from hailtop.batch.job import PythonJob
@@ -69,10 +68,10 @@ class RunPangenomeAwareDeepVariant(SequencingGroupStage):
 
 @stage()
 class GenerateSitesTable(CohortStage):
-    def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:
+    def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:  # noqa: ARG002
         return cpg_utils.to_path(config_retrieve(['generate_sites_table', 'sites_table_outpath']))
 
-    def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
+    def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:  # noqa: ARG002
         outputs: cpg_utils.Path = self.expected_outputs(cohort=cohort)
         sites_table_outpath: str = config_retrieve(['generate_sites_table', 'sites_table_outpath'])
         j: PythonJob = generate_sites_table(cohort=cohort, sites_table_outpath=sites_table_outpath)

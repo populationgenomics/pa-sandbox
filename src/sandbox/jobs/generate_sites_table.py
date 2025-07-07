@@ -1,15 +1,19 @@
+from typing import TYPE_CHECKING
+
 import hail as hl
 from cpg_flow.targets import Cohort
 from cpg_utils.config import config_retrieve, genome_build, get_driver_image
 from cpg_utils.hail_batch import get_batch, output_path
-from hail.vds.variant_dataset import VariantDataset
 from hailtop.batch.job import PythonJob, PythonResult
 from loguru import logger
+
+if TYPE_CHECKING:
+    from hail.vds.variant_dataset import VariantDataset
 
 
 def _initalise_sites_table_job(cohort: Cohort, name: str) -> PythonJob:
     job: PythonJob = get_batch().new_python_job(
-        name=f'Generate sites table for {cohort.name}',
+        name=name,
         attributes=cohort.get_job_attrs() or {} | {'tool': 'Hail:LD_prune'},  # type: ignore[ReportUnknownVariableType]
     )
     job.image(image=get_driver_image())
@@ -30,6 +34,7 @@ def _initalise_sites_table_merge_job(cohort: Cohort) -> PythonJob:
 
 
 def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
+    cohort_name: str = cohort.name
     sites_jobs: list[PythonResult] = []
     chromosomes: list[str] = [f'chr{x}' for x in [*list(range(1, 23)), 'X', 'Y', 'M']]
     for chromosome in chromosomes:
@@ -38,7 +43,7 @@ def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
                 cohort=cohort, name=f'Generate sites table for chr{chromosome} with {cohort.name}'
             ).call(
                 _run_sites_per_chromosome,
-                cohort=cohort,
+                cohort_name=cohort_name,
                 chromosome=chromosome,
             )
         )
@@ -49,7 +54,7 @@ def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
     return merge_job
 
 
-def _run_sites_per_chromosome(cohort: Cohort, chromosome: str) -> str:
+def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     vds_path: str = config_retrieve(['generate_sites_table', 'vds_path'])
     exomes: bool = config_retrieve(['generate_sites_table', 'exomes'])
     intersected_bed_file: str = config_retrieve(['generate_sites_table', 'intersected_bed_file'])
@@ -65,7 +70,8 @@ def _run_sites_per_chromosome(cohort: Cohort, chromosome: str) -> str:
     # LC pipeline VQSR has AS_FilterStatus in info field. We need to annotate
     # sites in the external sites table with AS_FilterStatus if it does not exist
     # based on the `filters` field.
-    if 'AS_FilterStatus' not in [k for k in external_sites_table.info.keys()]:
+    if 'AS_FilterStatus' not in list(external_sites_table.info.keys()):
+        # if 'AS_FilterStatus' not in [k for k in external_sites_table.info.keys()]:
         external_sites_table = external_sites_table.annotate(
             info=external_sites_table.info.annotate(
                 AS_FilterStatus=hl.if_else(hl.len(external_sites_table.filters) == 0, 'PASS', 'FAIL'),
@@ -145,7 +151,7 @@ def _run_sites_per_chromosome(cohort: Cohort, chromosome: str) -> str:
 
     logger.info('Writing sites table pre-LD pruning')
     checkpoint_path: str = output_path(
-        f'cohort{cohort.name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pre_pruning.mt', 'tmp'
+        f'cohort{cohort_name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pre_pruning.mt', 'tmp'
     )
     cohort_dense_mt = cohort_dense_mt.checkpoint(checkpoint_path, overwrite=True)
     logger.info('Done writing sites table pre-LD pruning')
@@ -161,7 +167,7 @@ def _run_sites_per_chromosome(cohort: Cohort, chromosome: str) -> str:
     logger.info(f'Done pruning sites table. Number of variants in pruned_variant_table: {pruned_variant_table.count()}')
 
     tmp_chr_outpath: str = output_path(
-        f'cohort{cohort.name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pruned.mt', 'tmp'
+        f'cohort{cohort_name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pruned.mt', 'tmp'
     )
     pruned_variant_table.write(tmp_chr_outpath, overwrite=True)
     logger.info('Done writing sites table')
@@ -173,5 +179,5 @@ def _run_merge_sites_table(filtered_chromosome_tables: list[str], sites_table_ou
     merged_sites_tables_list: list[hl.MatrixTable] = [
         hl.read_table(table).to_matrix_table() for table in filtered_chromosome_tables
     ]
-    merged_sites_table: hl.MatrixTable = merged_sites_tables_list[0].union_rows(merged_sites_tables_list[1:])
+    merged_sites_table: hl.MatrixTable = hl.MatrixTable.union_rows(*merged_sites_tables_list)
     merged_sites_table.write(sites_table_outpath)
