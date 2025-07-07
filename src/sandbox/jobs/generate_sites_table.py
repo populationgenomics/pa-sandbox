@@ -183,4 +183,5 @@ def _run_merge_sites_table(filtered_chromosome_tables: list[str], sites_table_ou
         hl.read_table(table).to_matrix_table() for table in filtered_chromosome_tables
     ]
     merged_sites_table: hl.Table = hl.MatrixTable.union_rows(*merged_sites_tables_list).rows()
-    merged_sites_table.write(sites_table_outpath)
+    merged_sites_table = merged_sites_table.repartition(100, shuffle=True)
+    merged_sites_table.write(sites_table_outpath, overwrite=True)
