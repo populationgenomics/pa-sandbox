@@ -23,9 +23,12 @@ Each Stage should be a Class, and should inherit from one of
 
 from typing import TYPE_CHECKING
 
+import cpg_utils
 from cpg_flow.stage import CohortStage, SequencingGroupStage, StageInput, StageOutput, stage
 from cpg_flow.targets import Cohort
+from cpg_utils.config import config_retrieve
 
+from sandbox.jobs.generate_sites_table import generate_sites_table
 from sandbox.jobs.run_deepvariant import run
 
 if TYPE_CHECKING:
@@ -33,6 +36,7 @@ if TYPE_CHECKING:
     from cpg_flow.stage import StageInput, StageOutput
     from cpg_flow.targets import SequencingGroup
     from cpg_utils import Path
+    from hailtop.batch.job import PythonJob
 
 
 @stage()
@@ -65,12 +69,12 @@ class RunPangenomeAwareDeepVariant(SequencingGroupStage):
 
 @stage()
 class GenerateSitesTable(CohortStage):
-    def expected_outputs(
-        self, cohort: Cohort
-    ) -> CloudPath | Path | dict[str, CloudPath | Path] | dict[str, str] | str | None:
-        return super().expected_outputs(cohort)
+    def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:
+        return cpg_utils.to_path(config_retrieve(['generate_sites_table', 'sites_table_outpath']))
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
-        outputs = self.expected_outputs(cohort=cohort)
+        outputs: cpg_utils.Path = self.expected_outputs(cohort=cohort)
+        sites_table_outpath: str = config_retrieve(['generate_sites_table', 'sites_table_outpath'])
+        j: PythonJob = generate_sites_table(cohort=cohort, sites_table_outpath=sites_table_outpath)
 
         return self.make_outputs(target=cohort, data=outputs, jobs=j)
