@@ -64,6 +64,14 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     subsample: bool = config_retrieve(['generate_sites_table', 'subsample'])
     subsample_n: int = config_retrieve(['generate_sites_table', 'subsample_n'])
 
+    allele_frequency_min: float = config_retrieve(['generate_sites_table', 'allele_frequency_min'])
+    call_rate_min: float = config_retrieve(['generate_sites_table', 'call_rate_min'])
+    f_stat: float = config_retrieve(['generate_sites_table', 'f_stat'])
+    p_value_hwe: float = config_retrieve(['generate_sites_table', 'p_value_hwe'])
+
+    r2_value: float = config_retrieve(['generate_sites_table', 'r2_value'])
+    bp_window_size: int = config_retrieve(['generate_sites_table', 'bp_window_size'])
+
     intervals: list[hl.Interval] = []
     external_sites_table = hl.read_table(external_sites_filter_table_path)
 
@@ -129,10 +137,10 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     cohort_dense_mt = cohort_dense_mt.filter_rows(
         (hl.is_snp(cohort_dense_mt.alleles[0], cohort_dense_mt.alleles[1]))
         & (cohort_dense_mt.locus.in_autosome())
-        & (cohort_dense_mt.variant_qc.AF[1] > 0.01)  # noqa: PLR2004
-        & (cohort_dense_mt.variant_qc.call_rate > 0.99)  # noqa: PLR2004
-        & (cohort_dense_mt.IB.f_stat > -0.80)  # noqa: PLR2004
-        & (cohort_dense_mt.variant_qc.p_value_hwe > 1e-8)  # noqa: PLR2004
+        & (cohort_dense_mt.variant_qc.AF[1] > allele_frequency_min)
+        & (cohort_dense_mt.variant_qc.call_rate > call_rate_min)
+        & (cohort_dense_mt.IB.f_stat > f_stat)
+        & (cohort_dense_mt.variant_qc.p_value_hwe > p_value_hwe)
     )
     logger.info('Done filtering using gnomAD v3 parameters')
 
@@ -163,8 +171,8 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     logger.info('Pruning sites table')
     pruned_variant_table = hl.ld_prune(
         cohort_dense_mt.GT,
-        r2=0.1,
-        bp_window_size=500000,
+        r2=r2_value,
+        bp_window_size=bp_window_size,
     )
 
     logger.info(f'Done pruning sites table. Number of variants in pruned_variant_table: {pruned_variant_table.count()}')

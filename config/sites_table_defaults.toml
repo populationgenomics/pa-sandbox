@@ -1,0 +1,34 @@
+# this is a template for the config file
+# demonstrating some of the common options used in cpg-flow
+[workflow]
+name = 'sandbox'
+sequencing_type = 'genome'
+only_states = ['GenerateSitesTable']
+
+# used to make sure we don't repeat previously completed stages
+check_expected_outputs = true
+
+# the method to register outputs, can be missing - will not generate metamist analysis entries
+status_reporter = 'metamist'
+
+[generate_sites_table]
+vds_path = 'gs://cpg-hgdp-1kg-main/vds/v1-0.vds/'
+exomes = false
+intersected_bed_file = 'gs://cpg-common-main/references/exome-probesets/hg38/mackenzie_intersect_exome_regions.bed'
+external_sites_filter_table_path = 'gs://cpg-common-main/references/gnomad/v4.1/ht/gnomad.genomes.v4.1.sites.ht'
+subsample = false
+subsample_n = 500000
+sites_table_outpath = 'gs://cpg-common-main/references/ancestry/hgdp-1kg-wgs-pruned_variants.ht'
+
+# Metrics for filtering
+allele_frequency_min = 0.01
+call_rate_min = 0.99
+f_stat = -0.80
+p_value_hwe = 1e-8
+
+# LD metrics
+r2_value = 0.1
+bp_window_size = 500000
+
+[hail]
+dry_run = true
