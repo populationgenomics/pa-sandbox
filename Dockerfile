@@ -10,5 +10,4 @@ COPY src src/
 
 RUN apt-get update && apt-get install -y git
 
-RUN pip install . \
-    && pip install typing-extensions==4.12.0
+RUN pip install .
