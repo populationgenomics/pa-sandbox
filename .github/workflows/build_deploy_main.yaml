@@ -10,6 +10,9 @@ permissions:
 
 env:
   PROJECT: 'cpg-common'
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_PROGRESS: plain
+  CLOUDSDK_CORE_DISABLE_PROMPTS: 1
   DOCKER_PREFIX: 'australia-southeast1-docker.pkg.dev'
   IMAGES_PREFIX: 'australia-southeast1-docker.pkg.dev/cpg-common/images'
 
@@ -57,12 +60,9 @@ jobs:
     if: ${{ needs.get_next_version.outputs.matrix != '{"include":[]}' && needs.get_next_version.outputs.matrix != '' }}
     strategy:
       matrix: ${{ fromJson(needs.get_next_version.outputs.matrix) }}
-    env:
-      DOCKER_BUILDKIT: 1
-      BUILDKIT_PROGRESS: plain
-      CLOUDSDK_CORE_DISABLE_PROMPTS: 1
     steps:
-      - uses: actions/checkout@v4
+      - name: 'checkout repo'
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -70,8 +70,8 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
-          workload_identity_provider: 'projects/1051897107465/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'gh-images-deployer@cpg-common.iam.gserviceaccount.com'
+          workload_identity_provider: ${{ secrets.PROD_IMG_DEPLOYER_POOL }}
+          service_account: ${{ secrets.PROD_IMG_DEPLOYER_SA }}
 
       - id: 'google-cloud-sdk-setup'
         name: 'Set up Cloud SDK'

@@ -11,43 +11,48 @@ if TYPE_CHECKING:
     from hail.vds.variant_dataset import VariantDataset
 
 
-def _initalise_sites_table_job(cohort: Cohort, name: str) -> PythonJob:
+def _initalise_sites_table_job(cohort: Cohort, name: str, job_memory: str, job_cpus: int) -> PythonJob:
     job: PythonJob = get_batch().new_python_job(
         name=name,
         attributes=cohort.get_job_attrs() or {} | {'tool': 'Hail:LD_prune'},  # type: ignore[ReportUnknownVariableType]
     )
     job.image(image=get_driver_image())
-    job.memory('highmem')
-    job.cpu(4)
+    job.memory(job_memory)
+    job.cpu(job_cpus)
     return job
 
 
-def _initalise_sites_table_merge_job(cohort: Cohort) -> PythonJob:
+def _initalise_sites_table_merge_job(cohort: Cohort, job_memory: str, job_cpus: int) -> PythonJob:
     job: PythonJob = get_batch().new_python_job(
         name=f'Merging per chromosome sites tables for {cohort.name}',
         attributes=cohort.get_job_attrs() or {} | {'tool': 'Hail:MergeSitesTables'},  # type: ignore[ReportUnknownVariableType]
     )
     job.image(image=get_driver_image())
-    job.memory('highmem')
-    job.cpu(4)
+    job.memory(job_memory)
+    job.cpu(job_cpus)
     return job
 
 
 def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
+    job_memory: str = config_retrieve(['workflow', 'job_memory'])
+    job_cpus: int = config_retrieve(['workflow', 'job_cpus'])
     cohort_name: str = cohort.name
     sites_jobs: list[PythonResult] = []
     chromosomes: list[str] = [f'chr{x}' for x in [*list(range(1, 23)), 'X', 'Y', 'M']]
     for chromosome in chromosomes:
         sites_jobs.append(
             _initalise_sites_table_job(
-                cohort=cohort, name=f'Generate sites table for chr{chromosome} with {cohort.name}'
+                cohort=cohort,
+                name=f'Generate sites table for chr{chromosome} with {cohort.name}',
+                job_memory=job_memory,
+                job_cpus=job_cpus,
             ).call(
                 _run_sites_per_chromosome,
                 cohort_name=cohort_name,
                 chromosome=chromosome,
             )
         )
-    merge_job: PythonJob = _initalise_sites_table_merge_job(cohort=cohort)
+    merge_job: PythonJob = _initalise_sites_table_merge_job(cohort=cohort, job_memory=job_memory, job_cpus=job_cpus)
     merge_job.call(
         _run_merge_sites_table, filtered_chromosome_tables=sites_jobs, sites_table_outpath=sites_table_outpath
     )
@@ -63,6 +68,14 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     )
     subsample: bool = config_retrieve(['generate_sites_table', 'subsample'])
     subsample_n: int = config_retrieve(['generate_sites_table', 'subsample_n'])
+
+    allele_frequency_min: float = config_retrieve(['generate_sites_table', 'allele_frequency_min'])
+    call_rate_min: float = config_retrieve(['generate_sites_table', 'call_rate_min'])
+    f_stat: float = config_retrieve(['generate_sites_table', 'f_stat'])
+    p_value_hwe: float = config_retrieve(['generate_sites_table', 'p_value_hwe'])
+
+    r2_value: float = config_retrieve(['generate_sites_table', 'r2_value'])
+    bp_window_size: int = config_retrieve(['generate_sites_table', 'bp_window_size'])
 
     intervals: list[hl.Interval] = []
     external_sites_table = hl.read_table(external_sites_filter_table_path)
@@ -129,10 +142,10 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     cohort_dense_mt = cohort_dense_mt.filter_rows(
         (hl.is_snp(cohort_dense_mt.alleles[0], cohort_dense_mt.alleles[1]))
         & (cohort_dense_mt.locus.in_autosome())
-        & (cohort_dense_mt.variant_qc.AF[1] > 0.01)  # noqa: PLR2004
-        & (cohort_dense_mt.variant_qc.call_rate > 0.99)  # noqa: PLR2004
-        & (cohort_dense_mt.IB.f_stat > -0.80)  # noqa: PLR2004
-        & (cohort_dense_mt.variant_qc.p_value_hwe > 1e-8)  # noqa: PLR2004
+        & (cohort_dense_mt.variant_qc.AF[1] > allele_frequency_min)
+        & (cohort_dense_mt.variant_qc.call_rate > call_rate_min)
+        & (cohort_dense_mt.IB.f_stat > f_stat)
+        & (cohort_dense_mt.variant_qc.p_value_hwe > p_value_hwe)
     )
     logger.info('Done filtering using gnomAD v3 parameters')
 
@@ -163,8 +176,8 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     logger.info('Pruning sites table')
     pruned_variant_table = hl.ld_prune(
         cohort_dense_mt.GT,
-        r2=0.1,
-        bp_window_size=500000,
+        r2=r2_value,
+        bp_window_size=bp_window_size,
     )
 
     logger.info(f'Done pruning sites table. Number of variants in pruned_variant_table: {pruned_variant_table.count()}')
