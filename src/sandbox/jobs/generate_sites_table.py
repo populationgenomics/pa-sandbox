@@ -122,7 +122,11 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
     vds = hl.vds.filter_variants(vds, passed_variants)
 
     # Remove all multiallelic sites
-    vds = hl.vds.filter_variants(vds, hl.len(vds.variant_data.alleles) > 2)  # noqa: PLR2004
+    vds = hl.vds.filter_variants(
+        vds,
+        vds.variant_data.filter_rows(hl.len(vds.variant_data.alleles) == 2).rows(),  # noqa: PLR2004
+        keep=True,
+    )
 
     logger.info('Densifying VDS')
     cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
