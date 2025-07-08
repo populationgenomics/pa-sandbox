@@ -43,7 +43,7 @@ def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
         sites_jobs.append(
             _initalise_sites_table_job(
                 cohort=cohort,
-                name=f'Generate sites table for chr{chromosome} with {cohort.name}',
+                name=f'Generate sites table for {chromosome} with {cohort.name}',
                 job_memory=job_memory,
                 job_cpus=job_cpus,
             ).call(
