@@ -103,7 +103,18 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
         # Generate list of intervals
         intervals = capture_interval_ht.interval.collect()
 
-    intervals = hl.eval(
+    debugging = [
+        interval
+        if intervals and interval.start.contig == chromosome
+        else hl.Interval(
+            hl.eval(hl.locus(chromosome, reference_genome=genome_build())), include_start=True, include_end=True
+        )
+        for interval in intervals
+    ]
+    logger.info(f'Intervals are: {intervals}')
+    logger.info(f'DEbugging: {debugging}')
+
+    filtering_intervals = hl.eval(
         hl.array(
             [
                 interval
@@ -115,10 +126,11 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
             ]
         )
     )
+    logger.info(f'Filtering intervals are: {filtering_intervals}')
 
     # Read VDS then filter, to avoid ref blocks that span intervals being dropped silently
     vds: VariantDataset = hl.vds.read_vds(str(vds_path))
-    vds = hl.vds.filter_intervals(vds, intervals, split_reference_blocks=False)
+    vds = hl.vds.filter_intervals(vds, filtering_intervals, split_reference_blocks=False)
 
     # Filter to variant sites that pass VQSR
     passed_variants = external_sites_table.filter(external_sites_table.info.AS_FilterStatus == 'PASS')
