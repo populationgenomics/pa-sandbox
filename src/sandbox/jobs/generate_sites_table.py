@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import hail as hl
 from cpg_flow.targets import Cohort
 from cpg_utils.config import config_retrieve, genome_build, get_driver_image
-from cpg_utils.hail_batch import get_batch, output_path
+from cpg_utils.hail_batch import get_batch, init_batch, output_path
 from hailtop.batch.job import PythonJob, PythonResult
 from loguru import logger
 
@@ -78,6 +78,9 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     bp_window_size: int = config_retrieve(['generate_sites_table', 'bp_window_size'])
 
     intervals: list[hl.Interval] = []
+
+    init_batch()
+
     external_sites_table = hl.read_table(external_sites_filter_table_path)
 
     # LC pipeline VQSR has AS_FilterStatus in info field. We need to annotate
@@ -192,6 +195,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
 
 def _run_merge_sites_table(filtered_chromosome_tables: list[str], sites_table_outpath: str) -> None:
     logger.info('Merging per chromosome sites tables into one')
+    init_batch()
     merged_sites_tables_list: list[hl.MatrixTable] = [
         hl.read_table(table).to_matrix_table() for table in filtered_chromosome_tables
     ]
