@@ -24,46 +24,15 @@ Each Stage should be a Class, and should inherit from one of
 from typing import TYPE_CHECKING
 
 import cpg_utils
-from cpg_flow.stage import CohortStage, SequencingGroupStage, StageInput, StageOutput, stage
+from cpg_flow.stage import CohortStage, StageInput, StageOutput, stage
 from cpg_flow.targets import Cohort
 from cpg_utils.config import config_retrieve
 
 from sandbox.jobs.generate_sites_table import generate_sites_table
-from sandbox.jobs.run_deepvariant import run
 
 if TYPE_CHECKING:
     # Path is a classic return type for a Stage, and is a shortcut for [CloudPath | pathlib.Path]
-    from cpg_flow.targets import SequencingGroup
-    from cpg_utils import Path
     from hailtop.batch.job import PythonJob
-
-
-@stage()
-class RunPangenomeAwareDeepVariant(SequencingGroupStage):
-    def expected_outputs(self, sequencing_group: 'SequencingGroup') -> 'Path':
-        # self.prefix() is a more concise shortcut for multicohort.analysis_dataset_bucket/ StageName / Hash
-        return {
-            'gvcf': sequencing_group.dataset.prefix(category='tmp') / self.name / f'{sequencing_group.id}.g.vcf.gz',
-            'vcf': sequencing_group.dataset.prefix(category='tmp') / self.name / f'{sequencing_group.id}.vcf.gz',
-        }
-
-    def queue_jobs(self, sequencing_group: 'SequencingGroup', inputs: 'StageInput') -> 'StageOutput':  # noqa: ARG002
-        """
-        This is where we generate jobs for this stage.
-        """
-        # locate the intended output path
-        outputs = self.expected_outputs(sequencing_group)
-
-        # generate the output
-        j = run(
-            output_vcf=str(outputs['vcf']),
-            output_gvcf=str(outputs['gvcf']),
-            sequencing_group_name=str(sequencing_group.id),
-            cram_path=sequencing_group.cram or sequencing_group.make_cram_path(),
-        )
-
-        # return the jobs and outputs
-        return self.make_outputs(sequencing_group, data=outputs, jobs=j)
 
 
 @stage()
