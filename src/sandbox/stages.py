@@ -27,6 +27,7 @@ import cpg_utils
 from cpg_flow.stage import CohortStage, StageInput, StageOutput, stage
 from cpg_flow.targets import Cohort
 from cpg_utils.config import config_retrieve
+from loguru import logger
 
 from sandbox.jobs.generate_sites_table import generate_sites_table
 
@@ -38,7 +39,10 @@ if TYPE_CHECKING:
 @stage()
 class GenerateSitesTable(CohortStage):
     def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:  # noqa: ARG002
-        return cpg_utils.to_path(config_retrieve(['generate_sites_table', 'sites_table_outpath']))
+        outpath: cpg_utils.Path = cpg_utils.to_path(config_retrieve(['generate_sites_table', 'sites_table_outpath']))
+        logger.info(f'Outpath is : {outpath}')
+        logger.info(f'Outpath exists: {outpath.exists()}')
+        return outpath
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:  # noqa: ARG002
         outputs: cpg_utils.Path = self.expected_outputs(cohort=cohort)
