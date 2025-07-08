@@ -103,30 +103,15 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
         # Generate list of intervals
         intervals = capture_interval_ht.interval.collect()
 
-    debugging = [
-        interval
-        if intervals and interval.start.contig == chromosome
-        else hl.Interval(
-            hl.eval(hl.locus(chromosome, reference_genome=genome_build())), include_start=True, include_end=True
-        )
-        for interval in intervals
-    ]
-    logger.info(f'Intervals are: {intervals}')
-    logger.info(f'DEbugging: {debugging}')
+    tmp_intervals: list[hl.Interval] = []
+    if not intervals:
+        tmp_intervals = [hl.eval(hl.parse_locus_interval(chromosome, reference_genomes='GRCh38'))]
+    else:
+        for interval in intervals:
+            if interval.start.contig == chromosome:
+                tmp_intervals.append(interval)
 
-    filtering_intervals = hl.eval(
-        hl.array(
-            [
-                interval
-                if intervals and interval.start.contig == chromosome
-                else hl.Interval(
-                    hl.eval(hl.locus(chromosome, reference_genome=genome_build())), include_start=True, include_end=True
-                )
-                for interval in intervals
-            ]
-        )
-    )
-    logger.info(f'Filtering intervals are: {filtering_intervals}')
+    filtering_intervals = hl.eval(hl.array(tmp_intervals))
 
     # Read VDS then filter, to avoid ref blocks that span intervals being dropped silently
     vds: VariantDataset = hl.vds.read_vds(str(vds_path))
