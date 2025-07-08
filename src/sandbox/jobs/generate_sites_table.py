@@ -59,7 +59,7 @@ def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
     return merge_job
 
 
-def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
+def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa: PLR0915
     vds_path: str = config_retrieve(['generate_sites_table', 'vds_path'])
     exomes: bool = config_retrieve(['generate_sites_table', 'exomes'])
     intersected_bed_file: str = config_retrieve(['generate_sites_table', 'intersected_bed_file'])
