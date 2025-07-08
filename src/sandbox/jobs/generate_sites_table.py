@@ -120,6 +120,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
     # Filter to variant sites that pass VQSR
     passed_variants = external_sites_table.filter(external_sites_table.info.AS_FilterStatus == 'PASS')
     vds = hl.vds.filter_variants(vds, passed_variants)
+    logger.info(f'{vds.variant_data.describe()}')
 
     # Remove all multiallelic sites
     vds = hl.vds.filter_variants(
@@ -127,10 +128,12 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
         vds.variant_data.filter_rows(hl.len(vds.variant_data.alleles) == 2).rows(),  # noqa: PLR2004
         keep=True,
     )
+    logger.info(f'{vds.variant_data.describe()}')
 
     logger.info('Densifying VDS')
     cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
     logger.info('Done densifying VDS. Now running variant QC')
+    logger.info(f'{cohort_dense_mt.describe()}')
 
     # Run variant QC
     # choose variants based off of gnomAD v3 parameters
