@@ -11,43 +11,48 @@ if TYPE_CHECKING:
     from hail.vds.variant_dataset import VariantDataset
 
 
-def _initalise_sites_table_job(cohort: Cohort, name: str) -> PythonJob:
+def _initalise_sites_table_job(cohort: Cohort, name: str, job_memory: str, job_cpus: int) -> PythonJob:
     job: PythonJob = get_batch().new_python_job(
         name=name,
         attributes=cohort.get_job_attrs() or {} | {'tool': 'Hail:LD_prune'},  # type: ignore[ReportUnknownVariableType]
     )
     job.image(image=get_driver_image())
-    job.memory('highmem')
-    job.cpu(4)
+    job.memory(job_memory)
+    job.cpu(job_cpus)
     return job
 
 
-def _initalise_sites_table_merge_job(cohort: Cohort) -> PythonJob:
+def _initalise_sites_table_merge_job(cohort: Cohort, job_memory: str, job_cpus: int) -> PythonJob:
     job: PythonJob = get_batch().new_python_job(
         name=f'Merging per chromosome sites tables for {cohort.name}',
         attributes=cohort.get_job_attrs() or {} | {'tool': 'Hail:MergeSitesTables'},  # type: ignore[ReportUnknownVariableType]
     )
     job.image(image=get_driver_image())
-    job.memory('highmem')
-    job.cpu(4)
+    job.memory(job_memory)
+    job.cpu(job_cpus)
     return job
 
 
 def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
+    job_memory: str = config_retrieve(['workflow', 'job_memory'])
+    job_cpus: int = config_retrieve(['workflow', 'job_cpus'])
     cohort_name: str = cohort.name
     sites_jobs: list[PythonResult] = []
     chromosomes: list[str] = [f'chr{x}' for x in [*list(range(1, 23)), 'X', 'Y', 'M']]
     for chromosome in chromosomes:
         sites_jobs.append(
             _initalise_sites_table_job(
-                cohort=cohort, name=f'Generate sites table for chr{chromosome} with {cohort.name}'
+                cohort=cohort,
+                name=f'Generate sites table for chr{chromosome} with {cohort.name}',
+                job_memory=job_memory,
+                job_cpus=job_cpus,
             ).call(
                 _run_sites_per_chromosome,
                 cohort_name=cohort_name,
                 chromosome=chromosome,
             )
         )
-    merge_job: PythonJob = _initalise_sites_table_merge_job(cohort=cohort)
+    merge_job: PythonJob = _initalise_sites_table_merge_job(cohort=cohort, job_memory=job_memory, job_cpus=job_cpus)
     merge_job.call(
         _run_merge_sites_table, filtered_chromosome_tables=sites_jobs, sites_table_outpath=sites_table_outpath
     )

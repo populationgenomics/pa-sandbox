@@ -11,6 +11,9 @@ check_expected_outputs = true
 # the method to register outputs, can be missing - will not generate metamist analysis entries
 status_reporter = 'metamist'
 
+job_memory = 'highmem'
+job_cpus = 4
+
 [generate_sites_table]
 vds_path = 'gs://cpg-hgdp-1kg-main/vds/v1-0.vds/'
 exomes = false
