@@ -105,7 +105,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
     tmp_intervals: list[hl.Interval] = []
     if not intervals:
-        tmp_intervals = [hl.eval(hl.parse_locus_interval(chromosome, reference_genomes='GRCh38'))]
+        tmp_intervals = [hl.eval(hl.parse_locus_interval(chromosome, reference_genome=genome_build()))]
     else:
         for interval in intervals:
             if interval.start.contig == chromosome:
