@@ -131,6 +131,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
     logger.info('Densifying VDS')
     cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
+    cohort_dense_mt = cohort_dense_mt.rename({'LGT', 'GT'})
     logger.info('Done densifying VDS. Now running variant QC')
     logger.info(f'{cohort_dense_mt.describe()}')
 
