@@ -127,7 +127,6 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
         vds.variant_data.filter_rows(hl.len(vds.variant_data.alleles) == 2).rows(),  # noqa: PLR2004
         keep=True,
     )
-    vds.variant_data.entry.rename({'LGT': 'GT'})
 
     logger.info('Densifying VDS')
     cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
