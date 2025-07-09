@@ -19,6 +19,7 @@ def _initalise_sites_table_job(cohort: Cohort, name: str, job_memory: str, job_c
     job.image(image=get_driver_image())
     job.memory(job_memory)
     job.cpu(job_cpus)
+    job.n_max_attempts(2)
     return job
 
 
@@ -30,6 +31,7 @@ def _initalise_sites_table_merge_job(cohort: Cohort, job_memory: str, job_cpus: 
     job.image(image=get_driver_image())
     job.memory(job_memory)
     job.cpu(job_cpus)
+    job.n_max_attempts(2)
     return job
 
 
