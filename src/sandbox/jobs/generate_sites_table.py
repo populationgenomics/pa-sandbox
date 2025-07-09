@@ -133,7 +133,6 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
     if 'GT' not in cohort_dense_mt.entry:
         cohort_dense_mt = cohort_dense_mt.rename({'LGT': 'GT'})
     logger.info('Done densifying VDS. Now running variant QC')
-    logger.info(f'{cohort_dense_mt.describe()}')
 
     # Run variant QC
     # choose variants based off of gnomAD v3 parameters
