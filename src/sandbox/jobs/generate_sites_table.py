@@ -208,7 +208,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
             f'Done pruning sites table. Number of variants in pruned_variant_table: {pruned_variant_table.count()}'
         )
 
-        post_ld_prune_outpath: str = output_path(
+        post_ld_prune_outpath = output_path(
             f'cohort{cohort_name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pruned.mt', 'tmp'
         )
         pruned_variant_table.write(post_ld_prune_outpath, overwrite=True)
