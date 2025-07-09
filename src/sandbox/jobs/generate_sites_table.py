@@ -84,15 +84,15 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
     init_batch()
 
-    checkpoint_path: str = output_path(
+    pre_ld_prune_path: str = output_path(
         f'cohort{cohort_name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pre_pruning.mt', 'tmp'
     )
-    tmp_ld_prune_outpath: str = output_path(
+    post_ld_prune_outpath: str = output_path(
         f'cohort{cohort_name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pruned.mt', 'tmp'
     )
 
-    if not to_path(tmp_ld_prune_outpath).exists():
-        if not to_path(checkpoint_path).exists():
+    if not to_path(post_ld_prune_outpath).exists():
+        if not to_path(pre_ld_prune_path).exists():
             external_sites_table = hl.read_table(external_sites_filter_table_path)
 
             # LC pipeline VQSR has AS_FilterStatus in info field. We need to annotate
@@ -190,11 +190,11 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                 )
 
             logger.info('Writing sites table pre-LD pruning')
-            cohort_dense_mt = cohort_dense_mt.checkpoint(checkpoint_path, overwrite=True)
+            cohort_dense_mt = cohort_dense_mt.checkpoint(pre_ld_prune_path, overwrite=True)
             logger.info('Done writing sites table pre-LD pruning')
 
         else:
-            cohort_dense_mt = hl.read_matrix_table(checkpoint_path)
+            cohort_dense_mt = hl.read_matrix_table(pre_ld_prune_path)
 
         # as per gnomAD, LD-prune variants with a cutoff of r2 = 0.1
         logger.info('Pruning sites table')
@@ -208,13 +208,13 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
             f'Done pruning sites table. Number of variants in pruned_variant_table: {pruned_variant_table.count()}'
         )
 
-        tmp_ld_prune_outpath: str = output_path(
+        post_ld_prune_outpath: str = output_path(
             f'cohort{cohort_name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pruned.mt', 'tmp'
         )
-        pruned_variant_table.write(tmp_ld_prune_outpath, overwrite=True)
+        pruned_variant_table.write(post_ld_prune_outpath, overwrite=True)
         logger.info('Done writing sites table')
 
-    return tmp_ld_prune_outpath
+    return post_ld_prune_outpath
 
 
 def _run_merge_sites_table(filtered_chromosome_tables: list[str], sites_table_outpath: str) -> None:
