@@ -41,7 +41,7 @@ def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
     job_cpus: int = config_retrieve(['workflow', 'job_cpus'])
     cohort_name: str = cohort.name
     sites_jobs: list[PythonResult] = []
-    chromosomes: list[str] = [f'chr{x}' for x in [*list(range(1, 23))]]
+    chromosomes: list[str] = config_retrieve(['generate_sites_table', 'chromosome_list'])
     for chromosome in chromosomes:
         sites_jobs.append(
             _initalise_sites_table_job(
