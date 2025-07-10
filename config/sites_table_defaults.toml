@@ -4,6 +4,7 @@
 name = 'sandbox'
 sequencing_type = 'genome'
 only_states = ['GenerateSitesTable']
+input_cohorts = ["COH0000"]
 
 # used to make sure we don't repeat previously completed stages
 check_expected_outputs = true
@@ -22,6 +23,7 @@ external_sites_filter_table_path = 'gs://cpg-common-main/references/gnomad/v4.1/
 subsample = false
 subsample_n = 500000
 sites_table_outpath = 'gs://cpg-common-main/references/ancestry/hgdp-1kg-wgs-pruned_variants.ht'
+chromosome_list = ['chr21']
 
 # Metrics for filtering
 allele_frequency_min = 0.01
