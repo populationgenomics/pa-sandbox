@@ -73,6 +73,8 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
     subsample: bool = config_retrieve(['generate_sites_table', 'subsample'])
     subsample_n: int = config_retrieve(['generate_sites_table', 'subsample_n'])
 
+    samples_to_drop = config_retrieve(['generate_sites_table', 'samples_to_drop'])
+
     allele_frequency_min: float = config_retrieve(['generate_sites_table', 'allele_frequency_min'])
     call_rate_min: float = config_retrieve(['generate_sites_table', 'call_rate_min'])
     f_stat: float = config_retrieve(['generate_sites_table', 'f_stat'])
@@ -142,6 +144,13 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                 vds.variant_data.filter_rows(hl.len(vds.variant_data.alleles) == 2).rows(),  # noqa: PLR2004
                 keep=True,
             )
+
+            # Remove samples that are present in the samples_to_drop list
+            sample_hts = [hl.read_table(path) for path in samples_to_drop]
+            all_samples_to_drop = sample_hts[0]
+            for ht in sample_hts[1:]:
+                all_samples_to_drop = all_samples_to_drop.union(ht)
+            vds = hl.vds.filter_samples(vds, all_samples_to_drop, keep=False)
 
             logger.info('Densifying VDS')
             cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
