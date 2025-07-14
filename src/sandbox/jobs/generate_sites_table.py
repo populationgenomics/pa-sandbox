@@ -75,6 +75,8 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
     samples_to_drop = config_retrieve(['generate_sites_table', 'samples_to_drop'])
 
+    n_partitions = config_retrieve(['generate_sites_table', 'n_partitions'])
+
     allele_frequency_min: float = config_retrieve(['generate_sites_table', 'allele_frequency_min'])
     call_rate_min: float = config_retrieve(['generate_sites_table', 'call_rate_min'])
     f_stat: float = config_retrieve(['generate_sites_table', 'f_stat'])
@@ -197,6 +199,10 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                     subsample_n / nrows,
                     seed=12345,
                 )
+
+            # Repartition the matrix table to account for our aggressive variant filtering.
+            logger.info('Repartioning the sites table pre-LD pruning')
+            cohort_dense_mt = cohort_dense_mt.repartition(n_partitions)
 
             logger.info('Writing sites table pre-LD pruning')
             cohort_dense_mt = cohort_dense_mt.checkpoint(pre_ld_prune_path, overwrite=True)
