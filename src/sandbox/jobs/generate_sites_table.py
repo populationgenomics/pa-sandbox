@@ -99,12 +99,6 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
     if not to_path(post_ld_prune_outpath).exists():
         if not to_path(pre_ld_prune_path).exists():
             external_sites_table: hl.Table = hl.read_table(external_sites_filter_table_path)
-            # Only keep the info that we need
-            external_sites_table = external_sites_table.select(
-                external_sites_table.locus,
-                external_sites_table.alleles,
-                external_sites_table.filters,
-            )
 
             # LC pipeline VQSR has AS_FilterStatus in info field. We need to annotate
             # sites in the external sites table with AS_FilterStatus if it does not exist
