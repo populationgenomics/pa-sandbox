@@ -202,7 +202,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
             # Repartition the matrix table to account for our aggressive variant filtering.
             logger.info('Repartioning the sites table pre-LD pruning')
-            cohort_dense_mt = cohort_dense_mt.repartition(n_partitions)
+            cohort_dense_mt = cohort_dense_mt.naive_coalesce(n_partitions)
 
             logger.info('Writing sites table pre-LD pruning')
             cohort_dense_mt = cohort_dense_mt.checkpoint(pre_ld_prune_path, overwrite=True)
