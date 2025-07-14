@@ -239,5 +239,5 @@ def _run_merge_sites_table(filtered_chromosome_tables: list[str], sites_table_ou
     init_batch()
     merged_sites_tables_list: list[hl.Table] = [hl.read_table(table) for table in filtered_chromosome_tables]
     merged_sites_table: hl.Table = hl.Table.union(*merged_sites_tables_list)
-    merged_sites_table = merged_sites_table.repartition(10)
+    merged_sites_table = merged_sites_table.repartition(n_partitions)
     merged_sites_table.write(sites_table_outpath, overwrite=True)
