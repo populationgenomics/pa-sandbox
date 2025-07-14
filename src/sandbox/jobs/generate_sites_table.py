@@ -5,7 +5,7 @@ from cpg_flow.targets import Cohort
 from cpg_flow.utils import to_path  # type: ignore[ReportUnknownVariableType]
 from cpg_utils.config import config_retrieve, genome_build, get_driver_image
 from cpg_utils.hail_batch import get_batch, init_batch, output_path  # type: ignore[ReportUnknownVariableType]
-from gnomad_methods.bi_allelic_sites_inbreeding import bi_allelic_site_inbreeding_expr
+from ..gnomad_methods.bi_allelic_sites_inbreeding import bi_allelic_site_inbreeding_expr
 from hailtop.batch.job import PythonJob, PythonResult
 from loguru import logger
 
