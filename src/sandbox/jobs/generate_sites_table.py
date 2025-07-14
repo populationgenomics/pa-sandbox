@@ -5,9 +5,10 @@ from cpg_flow.targets import Cohort
 from cpg_flow.utils import to_path  # type: ignore[ReportUnknownVariableType]
 from cpg_utils.config import config_retrieve, genome_build, get_driver_image
 from cpg_utils.hail_batch import get_batch, init_batch, output_path  # type: ignore[ReportUnknownVariableType]
-from ..gnomad_methods.bi_allelic_sites_inbreeding import bi_allelic_site_inbreeding_expr
 from hailtop.batch.job import PythonJob, PythonResult
 from loguru import logger
+
+from ..gnomad_methods.bi_allelic_sites_inbreeding import bi_allelic_site_inbreeding_expr
 
 if TYPE_CHECKING:
     from hail.vds.variant_dataset import VariantDataset
@@ -146,10 +147,6 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                 vds.variant_data.filter_rows(hl.len(vds.variant_data.alleles) == 2).rows(),  # noqa: PLR2004
                 keep=True,
             )
-            if 'GT' not in vds.variant_data.entry:
-                vds.variant_data = vds.variant_data.annotate_entries(
-                    GT=hl.vds.lgt_to_gt(vds.variant_data.LGT, vds.variant_data.LS)
-                )
 
             # Remove samples that are present in the samples_to_drop list
             sample_hts = [hl.read_table(path) for path in samples_to_drop]
@@ -157,6 +154,11 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
             for ht in sample_hts[1:]:
                 all_samples_to_drop = all_samples_to_drop.union(ht)
             vds = hl.vds.filter_samples(vds, all_samples_to_drop, keep=False)
+
+            if 'GT' not in vds.variant_data.entry:
+                vds.variant_data = vds.variant_data.annotate_entries(
+                    GT=hl.vds.lgt_to_gt(vds.variant_data.LGT, vds.variant_data.LS)
+                )
 
             logger.info('Densifying VDS')
             cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
