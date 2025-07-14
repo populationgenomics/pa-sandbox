@@ -28,6 +28,9 @@ chromosome_list = ['chr21']
 # Sample filtering
 samples_to_drop = []
 
+# Repartition post variant filtering
+n_partitions = 10
+
 # Metrics for filtering
 allele_frequency_min = 0.01
 call_rate_min = 0.99
