@@ -5,9 +5,10 @@ from cpg_flow.targets import Cohort
 from cpg_flow.utils import to_path  # type: ignore[ReportUnknownVariableType]
 from cpg_utils.config import config_retrieve, genome_build, get_driver_image
 from cpg_utils.hail_batch import get_batch, init_batch, output_path  # type: ignore[ReportUnknownVariableType]
-from ..gnomad_methods.bi_allelic_sites_inbreeding import bi_allelic_site_inbreeding_expr
 from hailtop.batch.job import PythonJob, PythonResult
 from loguru import logger
+
+from ..gnomad_methods.bi_allelic_sites_inbreeding import bi_allelic_site_inbreeding_expr
 
 if TYPE_CHECKING:
     from hail.vds.variant_dataset import VariantDataset
@@ -98,7 +99,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
     if not to_path(post_ld_prune_outpath).exists():
         if not to_path(pre_ld_prune_path).exists():
-            external_sites_table = hl.read_table(external_sites_filter_table_path)
+            external_sites_table: hl.Table = hl.read_table(external_sites_filter_table_path)
 
             # LC pipeline VQSR has AS_FilterStatus in info field. We need to annotate
             # sites in the external sites table with AS_FilterStatus if it does not exist
@@ -130,7 +131,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                     if interval.start.contig == chromosome:
                         tmp_intervals.append(interval)
 
-            filtering_intervals = hl.eval(hl.array(tmp_intervals))
+            filtering_intervals: list[hl.Interval] = hl.eval(hl.array(tmp_intervals))
 
             # Read VDS then filter, to avoid ref blocks that span intervals being dropped silently
             vds: VariantDataset = hl.vds.read_vds(str(vds_path))
@@ -154,10 +155,13 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                 all_samples_to_drop = all_samples_to_drop.union(ht)
             vds = hl.vds.filter_samples(vds, all_samples_to_drop, keep=False)
 
+            if 'GT' not in vds.variant_data.entry:
+                vds.variant_data = vds.variant_data.annotate_entries(
+                    GT=hl.vds.lgt_to_gt(vds.variant_data.LGT, vds.variant_data.LS)
+                )
+
             logger.info('Densifying VDS')
             cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
-            if 'GT' not in cohort_dense_mt.entry:
-                cohort_dense_mt = cohort_dense_mt.rename({'LGT': 'GT'})
             logger.info('Done densifying VDS. Now running variant QC')
 
             # Run variant QC
@@ -179,7 +183,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                 & (cohort_dense_mt.locus.in_autosome())
                 & (cohort_dense_mt.variant_qc.AF[1] > allele_frequency_min)
                 & (cohort_dense_mt.variant_qc.call_rate > call_rate_min)
-                & (cohort_dense_mt.IB > f_stat)
+                & (f_stat < cohort_dense_mt.IB)
                 & (cohort_dense_mt.variant_qc.p_value_hwe > p_value_hwe)
             )
             logger.info('Done filtering using gnomAD v3 parameters')
@@ -237,5 +241,5 @@ def _run_merge_sites_table(filtered_chromosome_tables: list[str], sites_table_ou
     init_batch()
     merged_sites_tables_list: list[hl.Table] = [hl.read_table(table) for table in filtered_chromosome_tables]
     merged_sites_table: hl.Table = hl.Table.union(*merged_sites_tables_list)
-    merged_sites_table = merged_sites_table.repartition(100, shuffle=True)
+    merged_sites_table = merged_sites_table.repartition(n_partitions)
     merged_sites_table.write(sites_table_outpath, overwrite=True)
