@@ -157,7 +157,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
             if 'GT' not in vds.variant_data.entry:
                 vds.variant_data = vds.variant_data.annotate_entries(
-                    GT=hl.vds.lgt_to_gt(vds.variant_data.LGT, vds.variant_data.LS)
+                    GT=hl.vds.lgt_to_gt(vds.variant_data.LGT, vds.variant_data.LA)
                 )
 
             logger.info('Densifying VDS')
