@@ -181,7 +181,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
             cohort_dense_mt = cohort_dense_mt.filter_rows(
                 (hl.is_snp(cohort_dense_mt.alleles[0], cohort_dense_mt.alleles[1]))
                 & (cohort_dense_mt.locus.in_autosome())
-                & (cohort_dense_mt.variant_qc.AF[1] > allele_frequency_min)
+                & (hl.min(cohort_dense_mt.variant_qc.AF[0], cohort_dense_mt.variant_qc.AF[1]) > allele_frequency_min)
                 & (cohort_dense_mt.variant_qc.call_rate > call_rate_min)
                 & (f_stat < cohort_dense_mt.IB)
                 & (cohort_dense_mt.variant_qc.p_value_hwe > p_value_hwe)
