@@ -219,7 +219,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
 
                 # Remove samples that are present in the samples_to_drop list.
                 if samples_to_drop:
-                    cohort_dense_mt = cohort_dense_mt.anti_join_cols(samples_to_drop)
+                    cohort_dense_mt = cohort_dense_mt.anti_join_cols(all_samples_to_drop)
 
             # Run variant QC
             logger.info('Running variant QC')
