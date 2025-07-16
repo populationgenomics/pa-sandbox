@@ -109,7 +109,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     vds_path: str = config_retrieve(['generate_sites_table', 'vds_path'], None)
     dense_mt_path: str = config_retrieve(['generate_sites_table', 'dense_mt_path'], None)
 
-    if not vds_path or dense_mt_path:
+    if not vds_path and not dense_mt_path:
             raise ValueError('One of vds_path or dense_mt_path must be provided')
 
     # Optional filtering to perform before variant QC (samples, variants, and intervals).
