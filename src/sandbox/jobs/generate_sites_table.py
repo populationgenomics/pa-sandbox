@@ -103,8 +103,16 @@ def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
     return merge_job
 
 
-def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa: PLR0915
+def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
+
+    # Paths to the input VDS or dense MatrixTable.
     vds_path: str = config_retrieve(['generate_sites_table', 'vds_path'])
+    dense_mt_path: str = config_retrieve(['generate_sites_table', 'dense_mt_path'])
+
+    if not vds_path or dense_mt_path:
+            raise ValueError('One of vds_path or dense_mt_path must be provided')
+
+    # Optional filtering to perform before variant QC (samples, variants, and intervals).
     exomes: bool = config_retrieve(['generate_sites_table', 'exomes'])
     external_sites_filter_table_path: str = config_retrieve(
         ['generate_sites_table', 'external_sites_filter_table_path']
@@ -114,18 +122,22 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
     samples_to_drop = config_retrieve(['generate_sites_table', 'samples_to_drop'])
 
+    # How many partitions to create after filtering.
     n_partitions = config_retrieve(['generate_sites_table', 'n_partitions'])
 
+    # Variant QC thresholds.
     allele_frequency_min: float = config_retrieve(['generate_sites_table', 'allele_frequency_min'])
     call_rate_min: float = config_retrieve(['generate_sites_table', 'call_rate_min'])
     f_stat: float = config_retrieve(['generate_sites_table', 'f_stat'])
     p_value_hwe: float = config_retrieve(['generate_sites_table', 'p_value_hwe'])
 
+    # LD pruning parameters.
     r2_value: float = config_retrieve(['generate_sites_table', 'r2_value'])
     bp_window_size: int = config_retrieve(['generate_sites_table', 'bp_window_size'])
 
     init_batch()
 
+    # Determine paths for intermediate outputs.
     pre_ld_prune_path: str = output_path(
         f'cohort{cohort_name}_{chromosome}_dense_mt_{"exome_" if exomes else ""}pre_pruning.mt', 'tmp'
     )
@@ -134,68 +146,91 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
     )
 
     if not to_path(post_ld_prune_outpath).exists():
+
         if not to_path(pre_ld_prune_path).exists():
-            external_sites_table: hl.Table = hl.read_table(external_sites_filter_table_path)
 
-            # LC pipeline VQSR has AS_FilterStatus in info field. We need to annotate
-            # sites in the external sites table with AS_FilterStatus if it does not exist
-            # based on the `filters` field.
-            if 'AS_FilterStatus' not in list(external_sites_table.info.keys()):
-                # if 'AS_FilterStatus' not in [k for k in external_sites_table.info.keys()]:
-                external_sites_table = external_sites_table.annotate(
-                    info=external_sites_table.info.annotate(
-                        AS_FilterStatus=hl.if_else(hl.len(external_sites_table.filters) == 0, 'PASS', 'FAIL'),
-                    ),
-                )
-
-            # Fetch the filtering intervals
+            # Fetch the filtering intervals.
             filtering_intervals: list[hl.Interval] = get_filtering_intervals(chromosome)
 
-            # Read VDS then filter, to avoid ref blocks that span intervals being dropped silently
-            vds: VariantDataset = hl.vds.read_vds(str(vds_path))
-            vds = hl.vds.filter_intervals(vds, filtering_intervals, split_reference_blocks=False)
+            # Fetch any additional site filtering tables.
+            if external_sites_filter_table_path:
+                external_sites_table: hl.Table = hl.read_table(external_sites_filter_table_path)
 
-            # Filter to variant sites that pass VQSR
-            passed_variants = external_sites_table.filter(external_sites_table.info.AS_FilterStatus == 'PASS')
-            vds = hl.vds.filter_variants(vds, passed_variants)
+                # LC pipeline VQSR has AS_FilterStatus in info field. We need to annotate
+                # sites in the external sites table with AS_FilterStatus if it does not exist
+                # based on the `filters` field.
+                if 'AS_FilterStatus' not in list(external_sites_table.info.keys()):
+                    # if 'AS_FilterStatus' not in [k for k in external_sites_table.info.keys()]:
+                    external_sites_table = external_sites_table.annotate(
+                        info=external_sites_table.info.annotate(
+                            AS_FilterStatus=hl.if_else(hl.len(external_sites_table.filters) == 0, 'PASS', 'FAIL'),
+                        ),
+                    )
+                passed_variants = external_sites_table.filter(external_sites_table.info.AS_FilterStatus == 'PASS')
 
-            # Remove all multiallelic sites
-            vds = hl.vds.filter_variants(
-                vds,
-                vds.variant_data.filter_rows(hl.len(vds.variant_data.alleles) == 2).rows(),  # noqa: PLR2004
-                keep=True,
-            )
+            # Fetch any samples that should be dropped.
+            if samples_to_drop:
+                sample_hts = [hl.read_table(path) for path in samples_to_drop]
+                all_samples_to_drop = sample_hts[0]
+                for ht in sample_hts[1:]:
+                    all_samples_to_drop = all_samples_to_drop.union(ht)
 
-            # Remove samples that are present in the samples_to_drop list
-            sample_hts = [hl.read_table(path) for path in samples_to_drop]
-            all_samples_to_drop = sample_hts[0]
-            for ht in sample_hts[1:]:
-                all_samples_to_drop = all_samples_to_drop.union(ht)
-            vds = hl.vds.filter_samples(vds, all_samples_to_drop, keep=False)
+            if not dense_mt_path:
 
-            if 'GT' not in vds.variant_data.entry:
-                vds.variant_data = vds.variant_data.annotate_entries(
-                    GT=hl.vds.lgt_to_gt(vds.variant_data.LGT, vds.variant_data.LA)
+                # Read VDS then filter to intervals, to avoid spanning ref blocks being dropped silently.
+                vds: VariantDataset = hl.vds.read_vds(str(vds_path))
+                vds = hl.vds.filter_intervals(vds, filtering_intervals, split_reference_blocks=False)
+
+                # Filter to variant sites that pass QC.
+                if external_sites_filter_table_path:
+                    vds = hl.vds.filter_variants(vds, passed_variants)
+
+                # Remove all multiallelic sites prior to densification.
+                vds = hl.vds.filter_variants(
+                    vds,
+                    vds.variant_data.filter_rows(hl.len(vds.variant_data.alleles) == 2).rows(),
+                    keep=True,
                 )
 
-            logger.info('Densifying VDS')
-            cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
-            logger.info('Done densifying VDS. Now running variant QC')
+                # Remove samples that are present in the samples_to_drop list.
+                if samples_to_drop:
+                    vds = hl.vds.filter_samples(vds, all_samples_to_drop, keep=False)
+
+                # Recode the local genotypes as GT entries if required.
+                if 'GT' not in vds.variant_data.entry:
+                    vds.variant_data = vds.variant_data.annotate_entries(
+                        GT=hl.vds.lgt_to_gt(vds.variant_data.LGT, vds.variant_data.LA)
+                    )
+
+                logger.info('Densifying VDS')
+                cohort_dense_mt: hl.MatrixTable = hl.vds.to_dense_mt(vds)
+
+            else:
+
+                # Read the dense MatrixTable.
+                cohort_dense_mt = hl.read_matrix_table(dense_mt_path)
+
+                # Filter to intervals.
+                cohort_dense_mt = hl.filter_intervals(cohort_dense_mt, filtering_intervals)
+
+                # Filter to variant sites that pass QC.
+                if external_sites_filter_table_path:
+                    cohort_dense_mt = cohort_dense_mt.semi_join_rows(passed_variants)
+
+                # Remove samples that are present in the samples_to_drop list.
+                if samples_to_drop:
+                    cohort_dense_mt = cohort_dense_mt.anti_join_cols(samples_to_drop)
 
             # Run variant QC
-            # choose variants based off of gnomAD v3 parameters
-            # Inbreeding coefficient > -0.80 (no excess of heterozygotes)
-            # Must be single nucleotide variants that are autosomal (i.e., no sex), and bi-allelic
-            # Have an allele frequency above 1% (note deviation from gnomAD, which is 0.1%)
-            # Have a call rate above 99%
+            logger.info('Running variant QC')
             cohort_dense_mt = hl.variant_qc(cohort_dense_mt)
-
-            logger.info('Done running variant QC. Now generating sites table and filtering using gnomAD v3 parameters')
             cohort_dense_mt = cohort_dense_mt.annotate_rows(
                 IB=bi_allelic_site_inbreeding_expr(
                     cohort_dense_mt.GT,
                 ),
             )
+
+            logger.info('Performing variant filtering')
             cohort_dense_mt = cohort_dense_mt.filter_rows(
                 (hl.is_snp(cohort_dense_mt.alleles[0], cohort_dense_mt.alleles[1]))
                 & (cohort_dense_mt.locus.in_autosome())
@@ -204,11 +239,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                 & (f_stat < cohort_dense_mt.IB)
                 & (cohort_dense_mt.variant_qc.p_value_hwe > p_value_hwe)
             )
-            logger.info('Done filtering using gnomAD v3 parameters')
-
-            # downsize input variants for ld_prune
-            # otherwise, persisting the pruned_variant_table will cause
-            # script to fail. See https://github.com/populationgenomics/ancestry/pull/79
+            logger.info('Filtering complete')
 
             # subsample
             if subsample:
@@ -222,13 +253,13 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                     seed=12345,
                 )
 
-            # Repartition the matrix table to account for our aggressive variant filtering.
-            logger.info('Repartioning the sites table pre-LD pruning')
+            # Repartition the matrix table to account for variant filtering.
+            logger.info('Repartioning the sites table before LD pruning')
             cohort_dense_mt = cohort_dense_mt.repartition(n_partitions)
 
-            logger.info('Writing sites table pre-LD pruning')
+            logger.info('Checkpointing pre-LD pruning matrix table')
             cohort_dense_mt = cohort_dense_mt.checkpoint(pre_ld_prune_path, overwrite=True)
-            logger.info('Done writing sites table pre-LD pruning')
+            logger.info('Checkpointing of the pre-LD pruning matrix table is complete')
 
         else:
             cohort_dense_mt = hl.read_matrix_table(pre_ld_prune_path)
@@ -242,7 +273,7 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
         )
 
         logger.info(
-            f'Done pruning sites table. Number of variants in pruned_variant_table: {pruned_variant_table.count()}'
+            f'Pruning complete. Number of variants in pruned_variant_table: {pruned_variant_table.count()}'
         )
 
         post_ld_prune_outpath = output_path(
