@@ -21,7 +21,7 @@ analysis-runner --dataset hgdp-1kg \
     --exome-intervals gs://cpg-common-main/references/exome-probesets/hg38/mackenzie_intersect_exome_regions.bed \
     --variant-table gs://cpg-common-main/references/gnomad/v4.1/ht/gnomad.genomes.v4.1.sites.ht \
     --n-partitions 100 \
-    --sites-table-outpath gs://cpg-common-main/references/ancestry/hgdp-1kg-wgs-pruned_variants.ht
+    --sites-table-outpath gs://cpg-common-main/references/ancestry/hgdp-1kg-wgs-pruned_variants.mt
 """
 
 from argparse import ArgumentParser, Namespace
