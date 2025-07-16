@@ -32,7 +32,7 @@ from cpg_utils.hail_batch import init_batch
 
 def main(
     vds_path: str,
-    samples_to_drop: str | None,
+    samples_to_drop: list[str] | None,
     exome_intervals: str,
     variant_table: str,
     n_partitions: int,
@@ -96,7 +96,8 @@ if __name__ == '__main__':
     parser.add_argument('--vds-path', help='Path to VDS in GCP.', required=True)
     parser.add_argument(
         '--samples-to-drop',
-        help='Samples(s) to drop from the VDS provided either on the command line as a comma-separated list of IDs, or in a text file with one per line.',
+        nargs='+',
+        help='Space-separated list of paths to hail tables that contain the samples that should be dropped from the VDS',
         required=False,
     )
     parser.add_argument(
