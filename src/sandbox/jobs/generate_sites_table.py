@@ -37,6 +37,45 @@ def _initalise_sites_table_merge_job(cohort: Cohort, job_memory: str, job_cpus: 
     job.n_max_attempts(2)
     return job
 
+def get_filtering_intervals(chromosome: str) -> list[hl.Interval]:
+
+    exomes: bool = config_retrieve(['generate_sites_table', 'exomes'])
+    intersected_bed_file: str = config_retrieve(['generate_sites_table', 'intersected_bed_file'])
+
+    # If 'autosomes' is passed, keep intervals from all 22 chromosomes.
+    if chromosome == 'autosomes':
+        target = {f'chr{i}' for i in range(1, 22)}
+    else:
+        target = {chromosome}
+
+    # Optionally filter to the exome regions.
+    if exomes:
+        if not intersected_bed_file:
+            raise ValueError('If --exomes is set, you must provide at least one --capture-region-bed-files')
+
+        # Read capture regions and filter to target chromosomes in one step
+        capture_interval_ht = hl.import_bed(
+            str(intersected_bed_file),
+            reference_genome=genome_build()
+        )
+
+        # Filter intervals to target chromosomes and collect
+        intervals = capture_interval_ht.filter(
+            hl.literal(target).contains(capture_interval_ht.interval.start.contig)
+        ).interval.collect()
+
+        if not intervals:
+            # No capture regions found for target chromosomes
+            raise ValueError(f"No capture regions found for chromosomes: {target}")
+
+    # Otherwise just subset to chromosomes.
+    else:
+        intervals = [
+            hl.eval(hl.parse_locus_interval(chrom, reference_genome=genome_build()))
+            for chrom in target
+        ]
+
+    return intervals
 
 def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
     job_memory: str = config_retrieve(['workflow', 'job_memory'])
@@ -67,7 +106,6 @@ def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
 def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa: PLR0915
     vds_path: str = config_retrieve(['generate_sites_table', 'vds_path'])
     exomes: bool = config_retrieve(['generate_sites_table', 'exomes'])
-    intersected_bed_file: str = config_retrieve(['generate_sites_table', 'intersected_bed_file'])
     external_sites_filter_table_path: str = config_retrieve(
         ['generate_sites_table', 'external_sites_filter_table_path']
     )
@@ -85,8 +123,6 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
 
     r2_value: float = config_retrieve(['generate_sites_table', 'r2_value'])
     bp_window_size: int = config_retrieve(['generate_sites_table', 'bp_window_size'])
-
-    intervals: list[hl.Interval] = []
 
     init_batch()
 
@@ -112,26 +148,8 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:  # noqa
                     ),
                 )
 
-            # exomes
-            if exomes:
-                if not intersected_bed_file:
-                    raise ValueError('If --exomes is set, you must provide at least one --capture-region-bed-files')
-                # Read in capture region bed files
-                capture_interval_ht: hl.Table = hl.import_bed(
-                    str(intersected_bed_file), reference_genome=genome_build()
-                )
-                # Generate list of intervals
-                intervals = capture_interval_ht.interval.collect()
-
-            tmp_intervals: list[hl.Interval] = []
-            if not intervals:
-                tmp_intervals = [hl.eval(hl.parse_locus_interval(chromosome, reference_genome=genome_build()))]
-            else:
-                for interval in intervals:
-                    if interval.start.contig == chromosome:
-                        tmp_intervals.append(interval)
-
-            filtering_intervals: list[hl.Interval] = hl.eval(hl.array(tmp_intervals))
+            # Fetch the filtering intervals
+            filtering_intervals: list[hl.Interval] = get_filtering_intervals(chromosome)
 
             # Read VDS then filter, to avoid ref blocks that span intervals being dropped silently
             vds: VariantDataset = hl.vds.read_vds(str(vds_path))
