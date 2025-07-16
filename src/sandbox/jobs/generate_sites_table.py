@@ -106,8 +106,8 @@ def generate_sites_table(cohort: Cohort, sites_table_outpath: str) -> PythonJob:
 def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
 
     # Paths to the input VDS or dense MatrixTable.
-    vds_path: str = config_retrieve(['generate_sites_table', 'vds_path'])
-    dense_mt_path: str = config_retrieve(['generate_sites_table', 'dense_mt_path'])
+    vds_path: str = config_retrieve(['generate_sites_table', 'vds_path'], None)
+    dense_mt_path: str = config_retrieve(['generate_sites_table', 'dense_mt_path'], None)
 
     if not vds_path or dense_mt_path:
             raise ValueError('One of vds_path or dense_mt_path must be provided')
@@ -115,12 +115,12 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
     # Optional filtering to perform before variant QC (samples, variants, and intervals).
     exomes: bool = config_retrieve(['generate_sites_table', 'exomes'])
     external_sites_filter_table_path: str = config_retrieve(
-        ['generate_sites_table', 'external_sites_filter_table_path']
+        ['generate_sites_table', 'external_sites_filter_table_path'], None
     )
     subsample: bool = config_retrieve(['generate_sites_table', 'subsample'])
     subsample_n: int = config_retrieve(['generate_sites_table', 'subsample_n'])
 
-    samples_to_drop = config_retrieve(['generate_sites_table', 'samples_to_drop'])
+    samples_to_drop = config_retrieve(['generate_sites_table', 'samples_to_drop'], None)
 
     # How many partitions to create after filtering.
     n_partitions = config_retrieve(['generate_sites_table', 'n_partitions'])
