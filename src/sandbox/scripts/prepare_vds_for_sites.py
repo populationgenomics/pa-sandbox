@@ -43,7 +43,7 @@ def main(
     input_vds: hl.vds.VariantDataset = hl.vds.read_vds(vds_path)
 
     if input_vds.ref_block_max_length_field not in input_vds.reference_data.globals:
-        hl.vds.store_ref_block_max_length(input_vds)
+        hl.vds.store_ref_block_max_length(vds_path)
 
     # Always subset by interval first, if possible
     # https://discuss.hail.is/t/filtering-samples-from-vds-in-google-cloud/3718/6
