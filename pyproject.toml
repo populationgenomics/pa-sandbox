@@ -69,7 +69,7 @@ ignore_missing_imports = true
 exclude = ['src.sandbox.gnomad_methods']
 
 [[tool.mypy.overrides]]
-module = ['src.sandbox.gnomad_methods']
+module = ['src.sandbox.gnomad_methods.*']
 ignore_errors = true
 
 [tool.pytest.ini_options]
