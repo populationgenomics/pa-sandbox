@@ -6,11 +6,10 @@ from cpg_flow.utils import can_reuse, exists
 from cpg_utils import to_path
 from cpg_utils.config import config_retrieve, dataset_path
 from cpg_utils.hail_batch import genome_build, init_batch
+from gnomad_methods.generate_freq_group_membership_array import generate_freq_group_membership_array
 from loguru import logger
 
 from sandbox.gnomad_methods import reference_genome
-
-from ..gnomad_methods.generate_freq_group_membership_array import generate_freq_group_membership_array
 
 
 def merge_coverage_tables(
