@@ -1,0 +1,12 @@
+[workflow]
+input_cohorts = ['COH0000']
+sequencing_type = 'exome'
+cohort = 'cohort_name'
+worker_cores = 8
+output_version = "cohort_name"
+# num_samples_to_keep = 500
+intervals_path = "intervals_path"
+# n_partitions = 10
+
+[combiner]
+vds_path = "vds_path"
