@@ -163,7 +163,11 @@ def _run_sites_per_chromosome(cohort_name: str, chromosome: str) -> str:
                     # if 'AS_FilterStatus' not in [k for k in external_sites_table.info.keys()]:
                     external_sites_table = external_sites_table.annotate(
                         info=external_sites_table.info.annotate(
-                            AS_FilterStatus=hl.if_else(hl.len(external_sites_table.filters) == 0, 'PASS', 'FAIL'),
+                            AS_FilterStatus=hl.if_else(((hl.len(external_sites_table.filters) == 0) &
+                                                       (~external_sites_table.region_flags.lcr) &
+                                                       (~external_sites_table.region_flags.segdup)),
+                                                       'PASS',
+                                                       'FAIL'),
                         ),
                     )
                 passed_variants = external_sites_table.filter(external_sites_table.info.AS_FilterStatus == 'PASS')
