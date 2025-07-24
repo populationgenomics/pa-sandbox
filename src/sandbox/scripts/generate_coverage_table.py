@@ -332,11 +332,7 @@ def compute_coverage_stats(
     return ht
 
 
-def run(
-    vds_path: str,
-    interval_list: str,
-    out_path: str,
-) -> None:
+def main() -> None:
     """
     Generate a coverage table for a given VDS and interval.
     :param vds_path: Path to the VDS.
@@ -344,6 +340,10 @@ def run(
     :param out_path: Path to save the coverage table.
     :return: Coverage Hail Table.
     """
+
+    vds_path: str = config_retrieve(['combiner', 'vds_path'])
+    interval_list: str = config_retrieve(['workflow', 'intervals_path'])
+    out_path: str = config_retrieve(['workflow', 'out_path'])
 
     init_batch(worker_cores=config_retrieve(['workflow', 'worker_cores']), worker_memory='highmem')
 
@@ -402,3 +402,7 @@ def run(
     )
 
     coverage_ht.write(out_path, overwrite=True)
+
+
+if __name__ == '__main__':
+    main()
