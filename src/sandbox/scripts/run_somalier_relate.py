@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # pylint: disable=missing-function-docstring,no-member
 """
 This script runs somalier relate on a set of cram.somalier files provided as input directory file path.
