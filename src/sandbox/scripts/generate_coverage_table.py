@@ -346,7 +346,7 @@ def main() -> None:
     out_path: str = config_retrieve(['workflow', 'out_path'])
 
     init_batch(
-        driver_corse=config_retrieve(['workflow', 'driver_cores']),
+        driver_cores=config_retrieve(['workflow', 'driver_cores']),
         driver_memory='highmem',
         worker_cores=config_retrieve(['workflow', 'worker_cores']),
         worker_memory='highmem',
