@@ -45,7 +45,7 @@ def main(job_memory, job_ncpu, job_storage, input_dirs):  # pylint: disable=miss
         input_files.extend(somalier_files)
 
     num_samples = len(input_files)
-    somalier_input = ' '.join(f'{path.rstrip("/") + "/*.somalier"}' for path in input_dirs)
+    somalier_input = [(f'{path.rstrip("/")}' for path in input_dirs)]
 
     somalier_job = b.new_job(name=f'Somalier relate: {num_samples} samples')
     somalier_job.image(SOMALIER_IMAGE)
@@ -55,7 +55,12 @@ def main(job_memory, job_ncpu, job_storage, input_dirs):  # pylint: disable=miss
 
     somalier_job.command(
         f"""
-        somalier relate --infer -o related {somalier_input}
+        mkdir somalier_files
+        for path in {' '.join(somalier_input)}; do
+            gcloud storage cp "$path/*.somalier" somalier_files
+        done
+
+        somalier relate --infer -o related somalier_files/*.somalier
 
         mv related.pairs.tsv {somalier_job.output_pairs}
         mv related.samples.tsv {somalier_job.output_samples}
