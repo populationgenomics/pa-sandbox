@@ -27,7 +27,7 @@ SOMALIER_IMAGE = config['images']['somalier']
     '--input-dirs',
     help='Space separated list of input directories to cram.somalier files',
     required=True,
-    nargs='+'
+    nargs=-1
 )
 @click.option('--job-storage', help='Storage of the Hail batch job eg 30G', default='10G')
 @click.option('--job-memory', help='Memory of the Hail batch job', default='8G')
