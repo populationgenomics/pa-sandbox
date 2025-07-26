@@ -8,7 +8,7 @@ This script runs somalier relate on a set of cram.somalier files provided as inp
     --access-level "full" \
     --output-dir "qc-stand-alone/tob_bioheart/somalier" \
     run_somalier_relate.py \
-    --input-dirs gs://cpg-bioheart-main/cram 
+    --input-dirs gs://cpg-bioheart-main/cram
     --input-dirs gs://cpg-tob-wgs-main/cram
 
 """
@@ -45,9 +45,7 @@ def main(job_memory, job_ncpu, job_storage, input_dirs):  # pylint: disable=miss
         input_files.extend(somalier_files)
 
     num_samples = len(input_files)
-    batch_input_files = []
-    for each_file in input_files:
-        batch_input_files.append(b.read_input(each_file))
+    somalier_input = ' '.join(f'"{path.rstrip("/") + "/*.somalier"}"' for path in input_dirs)
 
     somalier_job = b.new_job(name=f'Somalier relate: {num_samples} samples')
     somalier_job.image(SOMALIER_IMAGE)
@@ -58,7 +56,7 @@ def main(job_memory, job_ncpu, job_storage, input_dirs):  # pylint: disable=miss
     somalier_job.command(
         f"""
                 somalier relate  \\
-                {" ".join(batch_input_files)} \\
+                {somalier_input} \\
                 --infer \\
                 -o related
 
