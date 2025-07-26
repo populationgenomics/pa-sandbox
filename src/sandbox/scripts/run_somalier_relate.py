@@ -8,7 +8,8 @@ This script runs somalier relate on a set of cram.somalier files provided as inp
     --access-level "full" \
     --output-dir "qc-stand-alone/tob_bioheart/somalier" \
     run_somalier_relate.py \
-    --input-dirs gs://cpg-bioheart-main/cram gs://cpg-tob-wgs-main/cram
+    --input-dirs gs://cpg-bioheart-main/cram 
+    --input-dirs gs://cpg-tob-wgs-main/cram
 
 """
 
@@ -25,9 +26,9 @@ SOMALIER_IMAGE = config['images']['somalier']
 
 @click.option(
     '--input-dirs',
-    help='Space separated list of input directories to cram.somalier files',
+    help='Input directory to cram.somalier files (may be provided multiple times)',
     required=True,
-    nargs=-1
+    multiple=True
 )
 @click.option('--job-storage', help='Storage of the Hail batch job eg 30G', default='10G')
 @click.option('--job-memory', help='Memory of the Hail batch job', default='8G')
