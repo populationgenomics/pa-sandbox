@@ -55,15 +55,12 @@ def main(job_memory, job_ncpu, job_storage, input_dirs):  # pylint: disable=miss
 
     somalier_job.command(
         f"""
-                somalier relate  \\
-                {somalier_input} \\
-                --infer \\
-                -o related
+        somalier relate --infer -o related {somalier_input}
 
-                mv related.pairs.tsv {somalier_job.output_pairs}
-                mv related.samples.tsv {somalier_job.output_samples}
-                mv related.html {somalier_job.output_html}
-                """,
+        mv related.pairs.tsv {somalier_job.output_pairs}
+        mv related.samples.tsv {somalier_job.output_samples}
+        mv related.html {somalier_job.output_html}
+        """,
     )
     # Output writing
     b.write_output(
