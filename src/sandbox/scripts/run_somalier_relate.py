@@ -8,7 +8,8 @@ This script runs somalier relate on a set of cram.somalier files provided as inp
     --access-level "full" \
     --output-dir "qc-stand-alone/tob_bioheart/somalier" \
     run_somalier_relate.py \
-    --input-dirs gs://cpg-bioheart-main/cram gs://cpg-tob-wgs-main/cram
+    --input-dirs gs://cpg-bioheart-main/cram 
+    --input-dirs gs://cpg-tob-wgs-main/cram
 
 """
 
