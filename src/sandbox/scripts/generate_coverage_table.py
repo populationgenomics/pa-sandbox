@@ -147,7 +147,7 @@ def compute_coverage_stats(
     n_samples = group_membership_ht.count()
     sample_counts = group_membership_ht.index_globals().freq_meta_sample_count
 
-    logger.info('Computing coverage stats on %d samples.', n_samples)
+    logger.info(f'Computing coverage stats on {n_samples} samples.')
     # Filter datasets to interval list
     if intervals:
         vds = hl.vds.filter_intervals(
@@ -158,7 +158,7 @@ def compute_coverage_stats(
     if config_retrieve(['workflow', 'n_partitions'], default=None):
         vds.variant_data = vds.variant_data.repartition(config_retrieve(['workflow', 'n_partitions']))
         vds.reference_data = vds.reference_data.repartition(config_retrieve(['workflow', 'n_partitions']))
-        vds = vds.checkpoint(dataset_path(suffix='coverage/exome_interval_repartition', category='tmp'))
+        vds = vds.checkpoint(dataset_path(suffix='coverage/exome_interval_repartition', category='tmp'), overwrite=True)
 
     # Create an outer join with the reference Table
     def join_with_ref(mt: hl.MatrixTable) -> hl.MatrixTable:
@@ -183,7 +183,7 @@ def compute_coverage_stats(
         time_before = datetime.now()
         logger.info(f'Time starting _localize_entries() data at {time_before}')
         t = t._localize_entries('__entries', '__cols')
-        t = t.checkpoint(dataset_path('coverage/exome_localised_entries', category='tmp'))
+        t = t.checkpoint(dataset_path('coverage/exome_localised_entries', category='tmp'), overwrite=True)
         time_after = datetime.now()
         logger.info(f'Time finished _localize_entries() data at {time_after}')
         logger.info(f'Time taken to _localize_entries() data: {time_after - time_before}')
@@ -196,7 +196,7 @@ def compute_coverage_stats(
             )
             .key_by(*mt_row_key_fields)
         )
-        t = t.checkpoint(dataset_path('coverage/exome_reference_join', category='tmp'))
+        t = t.checkpoint(dataset_path('coverage/exome_reference_join', category='tmp'), overwrite=True)
         logger.info('Joined reference table')
         logger.info('Now annotating')
         t = t.annotate(
@@ -207,7 +207,7 @@ def compute_coverage_stats(
                 ),
             ),
         )
-        t = t.checkpoint(dataset_path('coverage/exome_annotate', category='tmp'))
+        t = t.checkpoint(dataset_path('coverage/exome_annotate', category='tmp'), overwrite=True)
         logger.info('Finished annotating')
 
         return t._unlocalize_entries('__entries', '__cols', mt_col_key_fields)
@@ -266,7 +266,7 @@ def compute_coverage_stats(
             mt.group_membership,
         ),
     ).rows()
-    ht = ht.checkpoint(hl.utils.new_temp_file('coverage_stats', 'ht'))
+    ht = ht.checkpoint(hl.utils.new_temp_file('coverage_stats', 'ht'), overwrite=True)
 
     # This expression aggregates the DP counter in reverse order of the
     # coverage_over_x_bins and computes the cumulative sum over them.

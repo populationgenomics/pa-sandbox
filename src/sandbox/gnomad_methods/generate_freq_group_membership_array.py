@@ -139,7 +139,7 @@ def generate_freq_group_membership_array(
             sample_group_filters.append((combo, hl.all(combo_filter_exprs)))
 
     n_groups = len(sample_group_filters)
-    logger.info("number of filters: %i", n_groups)
+    logger.info(f'number of filters: {n_groups}')
 
     # Get sample count per strata group.
     freq_meta_sample_count = ht.aggregate(
