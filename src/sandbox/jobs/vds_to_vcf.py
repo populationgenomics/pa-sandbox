@@ -4,9 +4,10 @@ import hail as hl
 from cpg_flow.targets import Cohort
 from cpg_utils.config import config_retrieve, get_driver_image
 from cpg_utils.hail_batch import get_batch, init_batch, output_path  # type: ignore[ReportUnknownVariableType]
-from gnomad.utils.sparse_mt import default_compute_info
 from hailtop.batch.job import PythonJob
 from loguru import logger
+
+from gnomad_methods.gnomad.utils.sparse_mt import default_compute_info
 
 if TYPE_CHECKING:
     from hail.vds.variant_dataset import VariantDataset
