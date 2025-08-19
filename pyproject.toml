@@ -66,10 +66,10 @@ exclude = '''
 
 [tool.mypy]
 ignore_missing_imports = true
-exclude = ['src.sandbox.gnomad_methods']
+exclude = ['gnomad_methods']
 
 [[tool.mypy.overrides]]
-module = ['src.sandbox.gnomad_methods.*']
+module = ['gnomad_methods.*']
 ignore_errors = true
 
 [tool.pytest.ini_options]
