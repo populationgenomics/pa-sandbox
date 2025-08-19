@@ -1,3 +1,0 @@
-[submodule "src/sandbox/gnomad_methods"]
-	path = src/sandbox/gnomad_methods
-	url = https://github.com/broadinstitute/gnomad_methods
