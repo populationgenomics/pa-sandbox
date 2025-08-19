@@ -30,6 +30,7 @@ from cpg_utils.config import config_retrieve
 from loguru import logger
 
 from sandbox.jobs.generate_sites_table import generate_sites_table
+from sandbox.jobs.vds_to_vcf import vds_to_vcf
 
 if TYPE_CHECKING:
     # Path is a classic return type for a Stage, and is a shortcut for [CloudPath | pathlib.Path]
@@ -50,3 +51,20 @@ class GenerateSitesTable(CohortStage):
         j: PythonJob = generate_sites_table(cohort=cohort, sites_table_outpath=sites_table_outpath)
 
         return self.make_outputs(target=cohort, data=outputs, jobs=j)
+
+
+@stage()
+class ExportVdsToVcf(CohortStage):
+    def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:  # noqa: ARG002
+        outpath: cpg_utils.Path = cpg_utils.to_path(config_retrieve(['export_vds_to_vcf', 'vcf_outpath']))
+        logger.info(f'Outpath is : {outpath}')
+        logger.info(f'Outpath exists: {outpath.exists()}')
+        return outpath
+
+    def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:  # noqa: ARG002
+        vcf_outpath: cpg_utils.Path = self.expected_outputs(cohort=cohort)
+        vds_path: cpg_utils.Path = cpg_utils.to_path(config_retrieve(['export_vds_to_vcf', 'vds_path']))
+
+        j: PythonJob = vds_to_vcf(cohort=cohort, vds_path=vds_path, vcf_outpath=vcf_outpath)
+
+        return self.make_outputs(target=cohort, data=vcf_outpath, jobs=j)
