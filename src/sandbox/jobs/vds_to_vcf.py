@@ -364,13 +364,9 @@ def generate_info_ht(mt: 'hl.MatrixTable') -> hl.Table:
 def _run_vds_to_vcf(vds_path: str, vcf_outpath: str) -> str:
     init_batch()
     vds: VariantDataset = hl.vds.read_vds(vds_path)
-    vds = hl.vds.filter_intervals(
+    vds = hl.vds.filter_chromosomes(
         vds,
-        [hl.interval(
-            start=hl.locus(contig='chr22', pos=10510212, reference_genome='GRCh38'),
-            end=hl.locus(contig='chr22', pos=10910212, reference_genome='GRCh38')
-        )],
-        split_reference_blocks=True,
+        keep='chr22',  # Hopefully get some spanning deletions in chr22
     )
 
     vds = globalise_entries(vds)
