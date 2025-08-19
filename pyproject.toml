@@ -66,10 +66,10 @@ exclude = '''
 
 [tool.mypy]
 ignore_missing_imports = true
-exclude = ['src.sandbox.gnomad_methods']
+exclude = '^gnomad_methods/'
 
 [[tool.mypy.overrides]]
-module = ['src.sandbox.gnomad_methods.*']
+module = "gnomad_methods.*"
 ignore_errors = true
 
 [tool.pytest.ini_options]
@@ -77,7 +77,7 @@ testpaths = ['test']
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["venv", ".mypy_cache", ".venv", "build", "dist", "src/sandbox/gnomad_methods/*.py"]
+extend-exclude = ["venv", ".mypy_cache", ".venv", "build", "dist"]
 
 [tool.ruff.format]
 indent-style = 'space'
