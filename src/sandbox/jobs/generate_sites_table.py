@@ -8,7 +8,7 @@ from cpg_utils.hail_batch import get_batch, init_batch, output_path  # type: ign
 from hailtop.batch.job import PythonJob, PythonResult
 from loguru import logger
 
-from ..gnomad_methods.bi_allelic_sites_inbreeding import bi_allelic_site_inbreeding_expr
+from gnomad_methods.gnomad.utils.annotations import bi_allelic_site_inbreeding_expr
 
 if TYPE_CHECKING:
     from hail.vds.variant_dataset import VariantDataset
