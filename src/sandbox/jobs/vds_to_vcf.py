@@ -379,9 +379,23 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str) -> str:
 
     mt = mt.checkpoint(output_path('dense_mt.mt', category='tmp'), overwrite=True)
 
-    # Filter to multi-allelic sites and grab first 10 rows
-    mt = mt.filter_rows(hl.len(mt.alleles) > 3)
-    mt = mt.head(10)
+    # Filter to multi-allelic and spanning deletion sites and grab first 10 rows
+    spanning_deletion_mt = mt.filter_rows(
+        (hl.len(mt.alleles) > 1) & mt.alleles.contains('*')
+    )
+
+    # Always take head() to limit the size, and check if we got any results
+    spanning_deletion_mt = spanning_deletion_mt.head(5)
+    has_spanning_deletion = spanning_deletion_mt.count_rows() > 0
+
+    other_multiallelic_mt = mt.filter_rows(
+        (hl.len(mt.alleles) > 3) & ~mt.alleles.contains('*')
+    )
+    other_multiallelic_mt = other_multiallelic_mt.head(5 if has_spanning_deletion else 10)
+
+    # Union them together
+    mt = spanning_deletion_mt.union_rows(other_multiallelic_mt) if has_spanning_deletion else other_multiallelic_mt
+
     mt = mt.checkpoint(output_path('subsetted_dense_mt.mt', category='tmp'), overwrite=True)
 
     info_ht = generate_info_ht(mt)
