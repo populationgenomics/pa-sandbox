@@ -80,6 +80,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          submodules: 'recursive'
 
       - id: 'google-cloud-auth'
         name: 'Authenticate to Google Cloud'
@@ -116,6 +117,8 @@ jobs:
     steps:
       - name: 'checkout repo'
         uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
 
       - id: 'google-cloud-auth'
         name: 'Authenticate to Google Cloud'
