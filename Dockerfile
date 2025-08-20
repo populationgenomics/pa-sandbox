@@ -7,7 +7,7 @@ ENV VERSION=0.1.4
 COPY LICENSE pyproject.toml README.md ./
 COPY src src/
 # COPY third_party third_party/
-COPY gnomad_methods/gnomad gnomad_methods/
+COPY gnomad_methods/gnomad gnomad
 
 RUN apt-get update && apt-get install -y git
 
