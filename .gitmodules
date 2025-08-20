@@ -1,3 +1,0 @@
-[submodule "gnomad_methods"]
-	path = gnomad_methods
-	url = https://github.com/broadinstitute/gnomad_methods
