@@ -9,5 +9,6 @@ COPY src src/
 # COPY third_party third_party/
 
 RUN apt-get update && apt-get install -y git
+COPY gnomad_methods/gnomad gnomad_methods/
 
 RUN pip install .
