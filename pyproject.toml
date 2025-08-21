@@ -46,7 +46,10 @@ sandbox = 'sandbox.run_workflow:cli_main'
 
 [tool.hatch.build.targets.wheel]
 # package-dir = {"" = "src"}
-packages = ["src/sandbox"]
+packages = [
+    "gnomad",
+    "src/sandbox"
+]
 
 [tool.hatch.build.targets.wheel.sources]
 "src" = ""
