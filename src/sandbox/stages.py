@@ -42,7 +42,6 @@ class GenerateSitesTable(CohortStage):
     def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:  # noqa: ARG002
         outpath: cpg_utils.Path = cpg_utils.to_path(config_retrieve(['generate_sites_table', 'sites_table_outpath']))
         logger.info(f'Outpath is : {outpath}')
-        logger.info(f'Outpath exists: {outpath.exists()}')
         return outpath
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:  # noqa: ARG002
@@ -58,7 +57,6 @@ class ExportVdsToVcf(CohortStage):
     def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:  # noqa: ARG002
         outpath: str = config_retrieve(['export_vds_to_vcf', 'vcf_outpath'])
         logger.info(f'Outpath is : {outpath}')
-        logger.info(f'Outpath exists: {outpath.exists()}')
         return outpath
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:  # noqa: ARG002
