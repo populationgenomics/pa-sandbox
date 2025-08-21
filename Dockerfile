@@ -11,4 +11,4 @@ COPY gnomad_methods/gnomad gnomad
 
 RUN apt-get update && apt-get install -y git
 
-RUN pip install .
+RUN pip install .[cpg]
