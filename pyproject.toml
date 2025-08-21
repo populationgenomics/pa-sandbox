@@ -33,19 +33,7 @@ Repository = "https://github.com/populationgenomics/pa-sandbox"
 # various requirements when running cpg-flow/analysis-runner
 cpg = [
     'cpg-flow>=v0.2.2',
-    'annoy',
-    'ga4gh.vrs[extras]==0.8.4',
-    'hail',
-    'hdbscan',
-    'ipywidgets',
-    'networkx',
-    'onnx==1.17.0',
-    'onnxruntime',
     'scikit-learn',
-    'skl2onnx',
-    'slackclient==2.5.0',
-    'statsmodels',
-
 ]
 test = [
     'bump2version',
