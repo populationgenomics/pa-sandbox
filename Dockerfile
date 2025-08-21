@@ -1,4 +1,4 @@
-FROM australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_hail_gcloud:0.2.134.cpg1
+FROM australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_hail_gcloud:0.2.134.cpg2-1
 
 # DeepVariant pa pipeline version.
 ENV VERSION=0.1.4
@@ -7,7 +7,6 @@ ENV VERSION=0.1.4
 COPY LICENSE pyproject.toml README.md ./
 COPY src src/
 # COPY third_party third_party/
+COPY gnomad_methods/gnomad gnomad
 
-RUN apt-get update && apt-get install -y git
-
-RUN pip install .
+RUN pip install .[cpg]

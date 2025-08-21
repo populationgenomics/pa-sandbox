@@ -33,6 +33,7 @@ Repository = "https://github.com/populationgenomics/pa-sandbox"
 # various requirements when running cpg-flow/analysis-runner
 cpg = [
     'cpg-flow>=v0.2.2',
+    'scikit-learn',
 ]
 test = [
     'bump2version',
@@ -46,7 +47,10 @@ sandbox = 'sandbox.run_workflow:cli_main'
 
 [tool.hatch.build.targets.wheel]
 # package-dir = {"" = "src"}
-packages = ["src/sandbox"]
+packages = [
+    "gnomad",
+    "src/sandbox"
+]
 
 [tool.hatch.build.targets.wheel.sources]
 "src" = ""
