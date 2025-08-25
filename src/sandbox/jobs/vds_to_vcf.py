@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING
 
 import hail as hl
 from cpg_flow.targets import Cohort
-from cpg_utils import to_path
 from cpg_utils.config import config_retrieve, get_driver_image
 from cpg_utils.hail_batch import get_batch, init_batch, output_path  # type: ignore[ReportUnknownVariableType]
 from gnomad.utils.sparse_mt import default_compute_info
@@ -326,7 +325,7 @@ def globalise_entries(vds: 'VariantDataset') -> 'VariantDataset':
 
     return vds
 
-def generate_info_ht(mt: 'hl.MatrixTable') -> hl.Table:
+def generate_info_ht(mt: 'hl.MatrixTable', chrom: str) -> hl.Table:
     """
     Code taken from MakeSiteOnlyVcf stage in large_cohorts.py
     """
@@ -358,12 +357,10 @@ def generate_info_ht(mt: 'hl.MatrixTable') -> hl.Table:
         pipe_delimited_annotations=[],
     )
 
-    return info_ht.checkpoint(output_path('info_ht.ht', category='tmp'), overwrite=True)
+    return info_ht.checkpoint(output_path(f'{chrom}_info_ht.ht', category='tmp'), overwrite=True)
 
 def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
     init_batch()
-
-    info_ht_outpath = output_path('info_ht.ht')
 
     vds: VariantDataset = hl.vds.read_vds(vds_path)
     vds = hl.vds.filter_chromosomes(
@@ -380,12 +377,9 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
     logger.info(f'Checkpointing dense MT to {output_path(f"{chrom}_dense_mt.mt", category="tmp")}')
     mt = mt.checkpoint(output_path(f'{chrom}_dense_mt.mt', category='tmp'), overwrite=True)
 
-    if to_path(info_ht_outpath).exists():
-        logger.info(f'info_ht already exists at {info_ht_outpath}, loading from there to avoid recomputation')
-        info_ht = hl.read_table(info_ht_outpath)
-    else:
-        logger.info(f'Generating info_ht and saving to {info_ht_outpath}')
-        info_ht = generate_info_ht(mt)
+
+    logger.info('Generating info_ht...')
+    info_ht = generate_info_ht(mt, chrom=chrom)
 
     # Annotate back the MT with the info HT
     logger.info('Annotating MT with info_ht')
