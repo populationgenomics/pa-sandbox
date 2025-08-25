@@ -244,10 +244,7 @@ def _filter_rows_and_add_tags(mt: hl.MatrixTable) -> hl.MatrixTable:
     # locus   alleles    LGT
     # chr1:1 ["GCT","G"] 0/1
     # chr1:3 ["T","*"]   NA
-    mt = mt.filter_rows(
-        (hl.len(mt.alleles) > 1) &
-        (hl.agg.any(mt.LGT.is_non_ref()) | mt.alleles.contains('*'))
-    )
+    mt = mt.filter_rows((hl.len(mt.alleles) > 1) & (hl.agg.any(mt.LGT.is_non_ref())))
 
     # annotate site level DP as site_dp onto the mt rows to avoid name collision
     mt = mt.annotate_rows(site_dp=hl.agg.sum(mt.DP))
