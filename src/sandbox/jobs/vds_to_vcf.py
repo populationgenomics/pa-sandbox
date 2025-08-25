@@ -360,7 +360,7 @@ def generate_info_ht(mt: 'hl.MatrixTable') -> hl.Table:
 
     return info_ht.checkpoint(output_path('info_ht.ht', category='tmp'), overwrite=True)
 
-def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrm: str) -> str:
+def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
     init_batch()
 
     info_ht_outpath = output_path('info_ht.ht')
@@ -368,7 +368,7 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrm: str) -> str:
     vds: VariantDataset = hl.vds.read_vds(vds_path)
     vds = hl.vds.filter_chromosomes(
         vds,
-        keep=chrm,
+        keep=chrom,
     )
 
     logger.info('Globalising entries')
@@ -377,8 +377,8 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrm: str) -> str:
     logger.info('Densifying...')
     mt = hl.vds.to_dense_mt(vds)
 
-    logger.info(f'Checkpointing dense MT to {output_path(f"{chrm}_dense_mt.mt", category="tmp")}')
-    mt = mt.checkpoint(output_path(f'{chrm}_dense_mt.mt', category='tmp'), overwrite=True)
+    logger.info(f'Checkpointing dense MT to {output_path(f"{chrom}_dense_mt.mt", category="tmp")}')
+    mt = mt.checkpoint(output_path(f'{chrom}_dense_mt.mt', category='tmp'), overwrite=True)
 
     if to_path(info_ht_outpath).exists():
         logger.info(f'info_ht already exists at {info_ht_outpath}, loading from there to avoid recomputation')
@@ -396,7 +396,7 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrm: str) -> str:
     mt = mt.drop('gvcf_info')
     mt = mt.drop('LAD', 'LGT', 'LA', 'LPL', 'LPGT')
 
-    logger.info(f'Exporting {chrm} VCF to {vcf_outpath}')
+    logger.info(f'Exporting {chrom} VCF to {vcf_outpath}')
     hl.export_vcf(mt, vcf_outpath, tabix=True)
 
     return vcf_outpath
