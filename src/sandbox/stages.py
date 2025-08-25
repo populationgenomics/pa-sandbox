@@ -55,14 +55,16 @@ class GenerateSitesTable(CohortStage):
 @stage()
 class ExportVdsToVcf(CohortStage):
     def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:  # noqa: ARG002
-        outpath: str = config_retrieve(['export_vds_to_vcf', 'vcf_outpath'])
-        logger.info(f'Outpath is : {outpath}')
-        return outpath
+        outdir: str = config_retrieve(['export_vds_to_vcf', 'vcf_out_dir'])
+        logger.info(f'Outdir is : {outdir}')
+        chroms = [f'chr{i}' for i in range(1, 23)] + ['chrX', 'chrY', 'chrM']
+        return {f'{chrom}': cpg_utils.to_path(outdir) / f'{chrom}.vcf.bgz' for chrom in chroms}
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:  # noqa: ARG002
-        vcf_outpath: str = self.expected_outputs(cohort=cohort)
+        vcf_out_dict: dict[str, cpg_utils.Path] = self.expected_outputs(cohort=cohort)
         vds_path: str = config_retrieve(['export_vds_to_vcf', 'vds_path'])
 
-        j: PythonJob = vds_to_vcf(cohort=cohort, vds_path=vds_path, vcf_outpath=vcf_outpath)
+        for chrom, outpath in vcf_out_dict.items():
+            j: PythonJob = vds_to_vcf(cohort=cohort, vds_path=vds_path, vcf_outpath=outpath, chroms=[chrom])
 
-        return self.make_outputs(target=cohort, data=vcf_outpath, jobs=j)
+        return self.make_outputs(target=cohort, data=vcf_out_dict, jobs=j)

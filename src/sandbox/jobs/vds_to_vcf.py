@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 import hail as hl
 from cpg_flow.targets import Cohort
+from cpg_utils import to_path
 from cpg_utils.config import config_retrieve, get_driver_image
 from cpg_utils.hail_batch import get_batch, init_batch, output_path  # type: ignore[ReportUnknownVariableType]
 from gnomad.utils.sparse_mt import default_compute_info
@@ -280,19 +281,20 @@ def _initalise_vds_export_to_vcf_job(cohort: Cohort, name: str, job_memory: str,
     return job
 
 
-def vds_to_vcf(cohort: Cohort, vds_path: str, vcf_outpath: str) -> PythonJob:
+def vds_to_vcf(cohort: Cohort, vds_path: str, vcf_outpath: str, chrom: str) -> PythonJob:
     job_memory: str = config_retrieve(['workflow', 'job_memory'])
     job_cpus: int = config_retrieve(['workflow', 'job_cpus'])
-    cohort_name: str = cohort.name
+
     vds_to_vcf_job: PythonJob = _initalise_vds_export_to_vcf_job(
         cohort=cohort,
-        name=f'ExportVdsToVcf-{cohort_name}',
+        name=f'ExportVdsToVcf-{chrom}',
         job_memory=job_memory,
         job_cpus=job_cpus,
     ).call(
         _run_vds_to_vcf,
         vds_path=vds_path,
         vcf_outpath=vcf_outpath,
+        chrom=chrom
     )
     return vds_to_vcf_job
 
@@ -361,40 +363,29 @@ def generate_info_ht(mt: 'hl.MatrixTable') -> hl.Table:
 
     return info_ht.checkpoint(output_path('info_ht.ht', category='tmp'), overwrite=True)
 
-def _run_vds_to_vcf(vds_path: str, vcf_outpath: str) -> str:
+def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrm: str) -> str:
     init_batch()
+
+    info_ht_outpath = output_path('info_ht.ht')
+
     vds: VariantDataset = hl.vds.read_vds(vds_path)
     vds = hl.vds.filter_chromosomes(
         vds,
-        keep='chr22',  # Hopefully get some spanning deletions in chr22
+        keep=chrm,
     )
 
     vds = globalise_entries(vds)
 
     mt = hl.vds.to_dense_mt(vds)
 
-    mt = mt.checkpoint(output_path('dense_mt.mt', category='tmp'), overwrite=True)
+    mt = mt.checkpoint(output_path(f'{chrm}_dense_mt.mt', category='tmp'), overwrite=True)
 
-    # Filter to multi-allelic and spanning deletion sites and grab first 10 rows
-    spanning_deletion_mt = mt.filter_rows(
-        (hl.len(mt.alleles) > 1) & mt.alleles.contains('*')
-    )
-
-    # Always take head() to limit the size, and check if we got any results
-    spanning_deletion_mt = spanning_deletion_mt.head(5)
-    has_spanning_deletion = spanning_deletion_mt.count_rows() > 0
-
-    other_multiallelic_mt = mt.filter_rows(
-        (hl.len(mt.alleles) > 3) & ~mt.alleles.contains('*')
-    )
-    other_multiallelic_mt = other_multiallelic_mt.head(5 if has_spanning_deletion else 10)
-
-    # Union them together
-    mt = spanning_deletion_mt.union_rows(other_multiallelic_mt) if has_spanning_deletion else other_multiallelic_mt
-
-    mt = mt.checkpoint(output_path('subsetted_dense_mt.mt', category='tmp'), overwrite=True)
-
-    info_ht = generate_info_ht(mt)
+    if to_path(info_ht_outpath).exists():
+        logger.info(f'info_ht already exists at {info_ht_outpath}, loading from there to avoid recomputation')
+        info_ht = hl.read_table(info_ht_outpath)
+    else:
+        logger.info(f'Generating info_ht and saving to {info_ht_outpath}')
+        info_ht = generate_info_ht(mt)
 
     # Annotate back the MT with the info HT
     mt = mt.annotate_rows(info=info_ht[mt.row_key].info)
@@ -403,6 +394,7 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str) -> str:
     mt = mt.drop('gvcf_info')
     mt = mt.drop('LAD', 'LGT', 'LA', 'LPL', 'LPGT')
 
-    hl.export_vcf(mt, vcf_outpath)
+    logger.info(f'Exporting {chrm} VCF to {vcf_outpath}')
+    hl.export_vcf(mt, vcf_outpath, tabix=True)
 
     return vcf_outpath
