@@ -374,10 +374,13 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrm: str) -> str:
         keep=chrm,
     )
 
+    logger.info('Globalising entries')
     vds = globalise_entries(vds)
 
+    logger.info('Densifying...')
     mt = hl.vds.to_dense_mt(vds)
 
+    logger.info(f'Checkpointing dense MT to {output_path(f"{chrm}_dense_mt.mt", category="tmp")}')
     mt = mt.checkpoint(output_path(f'{chrm}_dense_mt.mt', category='tmp'), overwrite=True)
 
     if to_path(info_ht_outpath).exists():
@@ -388,9 +391,11 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrm: str) -> str:
         info_ht = generate_info_ht(mt)
 
     # Annotate back the MT with the info HT
+    logger.info('Annotating MT with info_ht')
     mt = mt.annotate_rows(info=info_ht[mt.row_key].info)
 
     # Drop local and unnecessary fields
+    logger.info('Dropping local and unnecessary fields')
     mt = mt.drop('gvcf_info')
     mt = mt.drop('LAD', 'LGT', 'LA', 'LPL', 'LPGT')
 
