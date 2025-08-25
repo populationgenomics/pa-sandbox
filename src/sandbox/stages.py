@@ -65,6 +65,6 @@ class ExportVdsToVcf(CohortStage):
         vds_path: str = config_retrieve(['export_vds_to_vcf', 'vds_path'])
 
         for chrom, outpath in vcf_out_dict.items():
-            j: PythonJob = vds_to_vcf(cohort=cohort, vds_path=vds_path, vcf_outpath=outpath, chroms=[chrom])
+            j: PythonJob = vds_to_vcf(cohort=cohort, vds_path=vds_path, vcf_outpath=str(outpath), chroms=chrom)
 
         return self.make_outputs(target=cohort, data=vcf_out_dict, jobs=j)
