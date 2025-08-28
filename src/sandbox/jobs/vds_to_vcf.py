@@ -528,6 +528,7 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
     mt = mt.drop('LAD', 'LGT', 'LA', 'LPL', 'LPGT')
 
     logger.info(f'Exporting {chrom} VCF to {vcf_outpath}')
-    hl.export_vcf(mt, vcf_outpath, tabix=True)
+    metadata = {'info': INFO_DICT, 'format': FORMAT_DICT}
+    hl.export_vcf(mt, vcf_outpath, tabix=True, metadata=metadata)
 
     return vcf_outpath
