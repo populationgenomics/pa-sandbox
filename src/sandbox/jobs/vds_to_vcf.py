@@ -20,6 +20,143 @@ INFO_VCF_AS_PIPE_DELIMITED_FIELDS = [
     "AS_SB_TABLE",
 ]
 
+FORMAT_DICT = {
+    'GQ': {
+    'Description': (
+        'Phred-scaled confidence that the genotype assignment is correct. '
+        'Value is the difference between the second lowest PL and the lowest PL '
+        '(always normalized to 0).'
+    ),
+    'Type': 'Integer'
+},
+    'GT': {
+        'Description': 'Genotype',
+        'Type': 'String'
+    },
+    'DP': {
+        'Description': 'Approximate read depth (reads with MQ=255 or with bad mates are filtered)',
+        'Type': 'Integer'
+    },
+    'AD': {
+        'Description': 'Allelic depths for the ref and alt alleles in the order listed',
+        'Number': 'R',
+        'Type': 'Integer'
+    },
+    'MIN_DP': {
+        'Description': 'Minimum DP observed within the GVCF block',
+        'Type': 'Integer'
+    },
+    'GP': {
+        'Description': 'Phred-scaled posterior probabilities for genotypes as defined in the VCF specification'
+    },
+    'PGT': {
+    'Description': (
+        'Physical phasing haplotype information, describing how the alternate '
+        'alleles are phased in relation to one another'
+    ),
+    'Type': 'String'
+    },
+    'RGQ': {
+        'Description': (
+            'Unconditional reference genotype confidence, encoded as a phred quality '
+            '-10*log10 p(genotype call is wrong)'
+        )
+    },
+    'PID': {
+        'Description': (
+            'Physical phasing ID information, where each unique ID within a given '
+            'sample (but not across samples) connects records within a phasing group'
+        ),
+        'Type': 'String'
+    },
+    'PG': {
+        'Description': 'genotype priors in Phred Scale'
+    },
+    'PL': {
+        'Description': 'Normalized, phred-scaled likelihoods for genotypes as defined in the VCF specification',
+        'Number': 'G',
+        'Type': 'Integer'
+    },
+    'PS': {
+        'Description': (
+            'Physical phasing set information, identifying the position of the first '
+            'variant in the phasing group'
+        )
+    },
+    'SB': {
+        'Description': (
+            "Per-sample component statistics which comprise the Fisher's exact test to "
+            "detect strand bias. Values are: depth of reference allele on forward strand, "
+            "depth of reference allele on reverse strand, depth of alternate allele on "
+            "forward strand, depth of alternate allele on reverse strand."
+        ),
+        'Type': 'Integer'
+    }
+}
+
+INFO_DICT = {
+    'AS_ReadPosRankSum': {
+        'Description': 'AS Z-score from Wilcoxon rank sum test of alternate vs. reference read position bias'
+    },
+    'AS_MQRankSum': {
+        'Description': 'AS Z-score from Wilcoxon rank sum test of alternate vs. reference read mapping qualities'
+    },
+    'AS_QUALapprox': {
+        'Description': 'AS Sum of PL[0] values; used to approximate the QUAL score'
+    },
+    'AS_VarDP': {
+        'Description': 'AS Depth over variant genotypes (does not include depth of reference samples)'
+    },
+    'AS_SB_TABLE': {
+        'Number': '.',
+        'Description': 'Allele-specific forward/reverse read counts for strand bias tests'
+    },
+    'AS_MQ': {
+        'Description': 'AS Root mean square of the mapping quality of reads across all samples'
+    },
+    'AS_QD': {
+        'Description': 'AS Variant call confidence normalized by depth of sample reads supporting a variant'
+    },
+    'AS_FS': {
+        'Description': "AS Phred-scaled p-value of Fisher's exact test for strand bias"
+    },
+    'AS_SOR': {
+        'Description': 'AS Strand bias estimated by the symmetric odds ratio test'
+    },
+    'AS_pab_max': {
+        'Number': 'A',
+        'Description': (
+            'Maximum p-value over callset for binomial test of observed allele balance '
+            'for a heterozygous genotype, given expectation of 0.5'
+        )
+    },
+    'ReadPosRankSum': {
+        'Description': 'Z-score from Wilcoxon rank sum test of alternate vs. reference read position bias'
+    },
+    'MQRankSum': {
+        'Description': 'Z-score from Wilcoxon rank sum test of alternate vs. reference read mapping qualities'
+    },
+    'QUALapprox': {
+        'Number': '1',
+        'Description': 'Sum of PL[0] values; used to approximate the QUAL score'
+    },
+    'VarDP': {
+        'Description': 'Depth over variant genotypes (does not include depth of reference samples)'
+    },
+    'MQ': {
+        'Description': 'Root mean square of the mapping quality of reads across all samples'
+    },
+    'QD': {
+        'Description': 'Variant call confidence normalized by depth of sample reads supporting a variant'
+    },
+    'FS': {
+        'Description': "Phred-scaled p-value of Fisher's exact test for strand bias"
+    },
+    'SOR': {
+        'Description': 'Strand bias estimated by the symmetric odds ratio test'
+    }
+}
+
 def adjust_vcf_incompatible_types(
     ht: hl.Table,
     pipe_delimited_annotations: list[str] = INFO_VCF_AS_PIPE_DELIMITED_FIELDS,
@@ -391,6 +528,7 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
     mt = mt.drop('LAD', 'LGT', 'LA', 'LPL', 'LPGT')
 
     logger.info(f'Exporting {chrom} VCF to {vcf_outpath}')
-    hl.export_vcf(mt, vcf_outpath, tabix=True)
+    metadata = {'info': INFO_DICT, 'format': FORMAT_DICT}
+    hl.export_vcf(mt, vcf_outpath, tabix=True, metadata=metadata)
 
     return vcf_outpath
