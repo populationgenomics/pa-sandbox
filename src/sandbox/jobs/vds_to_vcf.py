@@ -7,30 +7,9 @@ from cpg_utils.hail_batch import get_batch, init_batch, output_path  # type: ign
 from gnomad.utils.sparse_mt import default_compute_info
 from hailtop.batch.job import PythonJob
 from loguru import logger
-from metamist.graphql import gql, query
 
 if TYPE_CHECKING:
     from hail.vds.variant_dataset import VariantDataset
-
-def generate_sample_map(sg_ids: list[str]) -> dict[str, str]:
-    """Generate a mapping from sequencing group IDs to external sample IDs."""
-    get_esid_query = gql(
-        """
-            query getExternalSampleIdsBySg($sg_ids: [String!]) {
-            sequencingGroups(id: {in_: $sg_ids}) {
-                sample {
-                externalId
-                }
-            }
-        }
-        """
-    )
-
-    query_response = query(get_esid_query, variables={"sg_ids": sg_ids})
-    return {
-        sg_dict['id']: sg_dict['sample']['externalId']
-        for sg_dict in query_response['data']['sequencingGroups']
-    }
 
 
 INFO_VCF_AS_PIPE_DELIMITED_FIELDS = [
@@ -517,25 +496,11 @@ def generate_info_ht(mt: 'hl.MatrixTable', chrom: str) -> hl.Table:
 
     return info_ht.checkpoint(output_path(f'{chrom}_info_ht.ht', category='tmp'), overwrite=True)
 
-def rename_samples(mt, id_map) -> hl.MatrixTable:
-    """
-    Rename samples in the matrix table using the provided ID map.
-
-    Note: Assumes sample names are in the `mt.s` struct
-    """
-    return mt.key_cols_by(s=hl.dict(id_map).get(mt.s, mt.s))
-
 def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
     init_batch()
 
     vds: VariantDataset = hl.vds.read_vds(vds_path)
-    sample_map = generate_sample_map(vds.variant_data.s.collect())
 
-    # Rename samples from CPG sequencing group IDs to external sample IDs
-    vds = hl.vds.VariantDataset(
-        variant_data = rename_samples(vds.variant_data, sample_map),
-        reference_data = rename_samples(vds.reference_data, sample_map)
-    )
     vds = hl.vds.filter_chromosomes(
         vds,
         keep=chrom,
