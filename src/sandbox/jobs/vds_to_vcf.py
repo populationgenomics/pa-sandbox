@@ -496,14 +496,6 @@ def generate_info_ht(mt: 'hl.MatrixTable', chrom: str) -> hl.Table:
 
     return info_ht.checkpoint(output_path(f'{chrom}_info_ht.ht', category='tmp'), overwrite=True)
 
-def rename_samples(mt, id_map) -> hl.MatrixTable:
-    """
-    Rename samples in the matrix table using the provided ID map.
-
-    Note: Assumes sample names are in the `mt.s` struct
-    """
-    return mt.key_cols_by(s=hl.dict(id_map).get(mt.s, mt.s))
-
 def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
     init_batch()
 
