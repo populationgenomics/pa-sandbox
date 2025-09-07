@@ -506,30 +506,40 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
         keep=chrom,
     )
 
-    logger.info('Globalising entries')
-    vds = globalise_entries(vds)
+    logger.info('Filtering to spanning deletions...')
+    spanning_deletions_mt = vds.variant_data.filter_rows(
+        vds.variant_data.alleles.contains('*')
+    )
+    logger.info(f'Checkpointing spanning deletions MT to {output_path(f"{chrom}_spanning_deletions.mt", category="tmp")}')
+    spanning_deletions_mt = spanning_deletions_mt.checkpoint(
+        output_path(f'{chrom}_spanning_deletions.mt', category='tmp'),
+        overwrite=True
+    )
 
-    logger.info('Densifying...')
-    mt = hl.vds.to_dense_mt(vds)
+    # logger.info('Globalising entries')
+    # vds = globalise_entries(vds)
 
-    logger.info(f'Checkpointing dense MT to {output_path(f"{chrom}_dense_mt.mt", category="tmp")}')
-    mt = mt.checkpoint(output_path(f'{chrom}_dense_mt.mt', category='tmp'), overwrite=True)
+    # logger.info('Densifying...')
+    # mt = hl.vds.to_dense_mt(vds)
+
+    # logger.info(f'Checkpointing dense MT to {output_path(f"{chrom}_dense_mt.mt", category="tmp")}')
+    # mt = mt.checkpoint(output_path(f'{chrom}_dense_mt.mt', category='tmp'), overwrite=True)
 
 
-    logger.info('Generating info_ht...')
-    info_ht = generate_info_ht(mt, chrom=chrom)
+    # logger.info('Generating info_ht...')
+    # info_ht = generate_info_ht(mt, chrom=chrom)
 
-    # Annotate back the MT with the info HT
-    logger.info('Annotating MT with info_ht')
-    mt = mt.annotate_rows(info=info_ht[mt.row_key].info)
+    # # Annotate back the MT with the info HT
+    # logger.info('Annotating MT with info_ht')
+    # mt = mt.annotate_rows(info=info_ht[mt.row_key].info)
 
-    # Drop local and unnecessary fields
-    logger.info('Dropping local and unnecessary fields')
-    mt = mt.drop('gvcf_info')
-    mt = mt.drop('LAD', 'LGT', 'LA', 'LPL', 'LPGT')
+    # # Drop local and unnecessary fields
+    # logger.info('Dropping local and unnecessary fields')
+    # mt = mt.drop('gvcf_info')
+    # mt = mt.drop('LAD', 'LGT', 'LA', 'LPL', 'LPGT')
 
-    logger.info(f'Exporting {chrom} VCF to {vcf_outpath}')
-    metadata = {'info': INFO_DICT, 'format': FORMAT_DICT}
-    hl.export_vcf(mt, vcf_outpath, tabix=True, metadata=metadata)
+    # logger.info(f'Exporting {chrom} VCF to {vcf_outpath}')
+    # metadata = {'info': INFO_DICT, 'format': FORMAT_DICT}
+    # hl.export_vcf(mt, vcf_outpath, tabix=True, metadata=metadata)
 
     return vcf_outpath

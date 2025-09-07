@@ -57,7 +57,8 @@ class ExportVdsToVcf(CohortStage):
     def expected_outputs(self, cohort: Cohort) -> cpg_utils.Path:  # noqa: ARG002
         outdir: str = config_retrieve(['export_vds_to_vcf', 'vcf_out_dir'])
         logger.info(f'Outdir is : {outdir}')
-        chroms = [f'chr{i}' for i in range(1, 23)] + ['chrX', 'chrY', 'chrM']
+        # chroms = [f'chr{i}' for i in range(1, 23)] + ['chrX', 'chrY', 'chrM']
+        chroms = ['chr22']
         return {f'{chrom}': cpg_utils.to_path(outdir) / f'{chrom}.vcf.bgz' for chrom in chroms}
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:  # noqa: ARG002
