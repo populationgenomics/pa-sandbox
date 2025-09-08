@@ -501,18 +501,20 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
 
     vds: VariantDataset = hl.vds.read_vds(vds_path)
 
-    vds = hl.vds.filter_chromosomes(
-        vds,
-        keep=chrom,
-    )
+    # vds = hl.vds.filter_chromosomes(
+    #     vds,
+    #     keep=chrom,
+    # )
 
     logger.info('Filtering to spanning deletions...')
     spanning_deletions_mt = vds.variant_data.filter_rows(
         vds.variant_data.alleles.contains('*')
     )
-    logger.info(f'Checkpointing spanning deletions MT to {output_path(f"{chrom}_spanning_deletions.mt", category="tmp")}')
+    logger.info(
+        f'Checkpointing spanning deletions MT to {output_path("all_chrom_spanning_deletions.mt", category="tmp")}'
+    )
     spanning_deletions_mt = spanning_deletions_mt.checkpoint(
-        output_path(f'{chrom}_spanning_deletions.mt', category='tmp'),
+        output_path('all_chrom_spanning_deletions.mt', category='tmp'),
         overwrite=True
     )
 
