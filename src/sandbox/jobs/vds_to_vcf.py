@@ -511,10 +511,11 @@ def _run_vds_to_vcf(vds_path: str, vcf_outpath: str, chrom: str) -> str:
         vds.variant_data.alleles.contains('*')
     )
     logger.info(
-        f'Checkpointing spanning deletions MT to {output_path("all_chrom_spanning_deletions.mt", category="tmp")}'
+        f'Checkpointing spanning deletions MT to {output_path("all_chrom_spanning_deletions.mt", category="tmp", test=True)}'
     )
+    spanning_deletions_mt = spanning_deletions_mt.repartition(2500)
     spanning_deletions_mt = spanning_deletions_mt.checkpoint(
-        output_path('all_chrom_spanning_deletions.mt', category='tmp'),
+        output_path('all_chrom_spanning_deletions.mt', category='tmp', test=True),
         overwrite=True
     )
 
