@@ -201,7 +201,7 @@ class SomalierPedigree(DatasetStage):
 
 
 # @stage(required_stages=[DragenCramQC, SomalierPedigree], analysis_type='qc', analysis_keys=['json'])
-@stage(analysis_type='qc', analysis_keys=['json'])
+@stage(required_stages=[SomalierPedigree], analysis_type='qc', analysis_keys=['json'])
 class DragenCramMultiQC(CohortStage):
     """
     Run MultiQC to aggregate CRAM QC stats across a Cohort, rather than a Dataset.
