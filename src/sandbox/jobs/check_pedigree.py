@@ -19,7 +19,8 @@ import click
 import pandas as pd
 from cpg_utils import to_path
 from cpg_utils.slack import send_message
-from peddy import Ped
+
+# from peddy import Ped
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
