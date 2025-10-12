@@ -236,7 +236,14 @@ class DragenCramMultiQC(CohortStage):
         else:
             html_url = None
 
+        cohort_sgs = cohort.get_sequencing_groups()
+
+        dragen_metrics_paths: list[Path] = [
+            to_path(f'gs://cpg-bioheart-test/ica/dragen_3_7_8/output/dragen_metrics/{sg.id}')
+            for sg in cohort_sgs
+            ]
         paths = []
+
         try:
             somalier_samples = inputs.as_path(cohort, SomalierPedigree, key='samples')
             somalier_pairs = inputs.as_path(cohort, SomalierPedigree, key='pairs')
@@ -277,6 +284,7 @@ class DragenCramMultiQC(CohortStage):
         extra_config = config_retrieve(['workflow', 'cram_multiqc', 'extra_config'], default={})
         extra_config['table_columns_visible'] = {'FastQC': False}
 
+        paths += dragen_metrics_paths
         jobs = multiqc(
             get_batch(),
             tmp_prefix=cohort.dataset.tmp_prefix() / 'multiqc' / 'cram',
