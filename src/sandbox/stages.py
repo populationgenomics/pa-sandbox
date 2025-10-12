@@ -198,8 +198,9 @@ class SomalierPedigree(DatasetStage):
 
 
 
-@stage(required_stages=[DragenCramQC, SomalierPedigree], analysis_type='qc', analysis_keys=['json'])
-class DragenCramMultiQC(SequencingGroupStage):
+# @stage(required_stages=[DragenCramQC, SomalierPedigree], analysis_type='qc', analysis_keys=['json'])
+@stage(analysis_type='qc', analysis_keys=['json'])
+class DragenCramMultiQC(CohortStage):
     """
     Run MultiQC to aggregate CRAM QC stats across a Cohort, rather than a Dataset.
     """
@@ -214,9 +215,9 @@ class DragenCramMultiQC(SequencingGroupStage):
         # get the unique hash for these Sequencing Groups
         sg_hash = cohort.get_alignment_inputs_hash()
         return {
-            'html': cohort.analysis_dataset.web_prefix() / 'qc' / 'cram' / sg_hash / 'cohort_multiqc.html',
-            'json': cohort.analysis_dataset.prefix() / 'qc' / 'cram' / sg_hash / 'cohort_multiqc_data.json',
-            'checks': cohort.analysis_dataset.prefix() / 'qc' / 'cram' / sg_hash / '.cohort_checks',
+            'html': cohort.dataset.web_prefix() / 'qc' / 'cram' / sg_hash / 'cohort_multiqc.html',
+            'json': cohort.dataset.prefix() / 'qc' / 'cram' / sg_hash / 'cohort_multiqc_data.json',
+            'checks': cohort.dataset.prefix() / 'qc' / 'cram' / sg_hash / '.cohort_checks',
         }
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
@@ -230,8 +231,8 @@ class DragenCramMultiQC(SequencingGroupStage):
         json_path = self.expected_outputs(cohort)['json']
         html_path = self.expected_outputs(cohort)['html']
         checks_path = self.expected_outputs(cohort)['checks']
-        if base_url := cohort.analysis_dataset.web_url():
-            html_url = str(html_path).replace(str(cohort.analysis_dataset.web_prefix()), base_url)
+        if base_url := cohort.dataset.web_url():
+            html_url = str(html_path).replace(str(cohort.dataset.web_prefix()), base_url)
         else:
             html_url = None
 
@@ -250,22 +251,23 @@ class DragenCramMultiQC(SequencingGroupStage):
         ending_to_trim = set()  # endings to trim to get sample names
         modules_to_trim_endings = set()
 
-        for sequencing_group in cohort.get_sequencing_groups():
-            for qc in qc_functions():
-                for key, out in qc.outs.items():
-                    if not out:
-                        continue
-                    try:
-                        path = inputs.as_path(sequencing_group, CramQC, key)
-                    except StageInputNotFoundError:  # allow missing inputs
-                        logging.warning(
-                            f'Output CramQc/"{key}" not found for {sequencing_group}, '
-                            f'it will be silently excluded from MultiQC',
-                        )
-                        continue
-                    modules_to_trim_endings.add(out.multiqc_key)
-                    paths.append(path)
-                    ending_to_trim.add(path.name.replace(sequencing_group.id, ''))
+        # NOTE: Commenting out because we need a way to represent default DRAGEN CRAM paths.
+        # for sequencing_group in cohort.get_sequencing_groups():
+        #     for qc in qc_functions():
+        #         for key, out in qc.outs.items():
+        #             if not out:
+        #                 continue
+        #             try:
+        #                 path = inputs.as_path(sequencing_group, CramQC, key)
+        #             except StageInputNotFoundError:  # allow missing inputs
+        #                 logging.warning(
+        #                     f'Output CramQc/"{key}" not found for {sequencing_group}, '
+        #                     f'it will be silently excluded from MultiQC',
+        #                 )
+        #                 continue
+        #             modules_to_trim_endings.add(out.multiqc_key)
+        #             paths.append(path)
+        #             ending_to_trim.add(path.name.replace(sequencing_group.id, ''))
 
         if not paths:
             logging.warning('No CRAM QC found to aggregate with MultiQC')
@@ -277,17 +279,17 @@ class DragenCramMultiQC(SequencingGroupStage):
 
         jobs = multiqc(
             get_batch(),
-            tmp_prefix=cohort.analysis_dataset.tmp_prefix() / 'multiqc' / 'cram',
+            tmp_prefix=cohort.dataset.tmp_prefix() / 'multiqc' / 'cram',
             paths=paths,
             ending_to_trim=ending_to_trim,
             modules_to_trim_endings=modules_to_trim_endings,
-            dataset=cohort.analysis_dataset,
+            dataset=cohort.dataset,
             out_json_path=json_path,
             out_html_path=html_path,
             out_html_url=html_url,
             out_checks_path=checks_path,
             job_attrs=self.get_job_attrs(cohort),
-            sequencing_group_id_map=cohort.analysis_dataset.rich_id_map(),
+            sequencing_group_id_map=cohort.dataset.rich_id_map(),
             label='CRAM',
             send_to_slack=send_to_slack,
             extra_config=extra_config,
