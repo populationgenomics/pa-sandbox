@@ -14,7 +14,7 @@ from cpg_utils.hail_batch import command, copy_common_env
 from hailtop.batch import Batch, ResourceFile
 from hailtop.batch.job import Job
 
-from src.sandbox.jobs import check_multiqc
+from sandbox.jobs import check_multiqc
 
 
 def multiqc(
