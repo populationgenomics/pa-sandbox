@@ -214,11 +214,10 @@ class DragenCramMultiQC(CohortStage):
             return {}
 
         # get the unique hash for these Sequencing Groups
-        sg_hash = cohort.get_alignment_inputs_hash()
         return {
-            'html': cohort.dataset.web_prefix() / 'qc' / 'cram' / sg_hash / 'cohort_multiqc.html',
-            'json': cohort.dataset.prefix() / 'qc' / 'cram' / sg_hash / 'cohort_multiqc_data.json',
-            'checks': cohort.dataset.prefix() / 'qc' / 'cram' / sg_hash / '.cohort_checks',
+            'html': cohort.dataset.web_prefix() / 'qc' / 'cram' / cohort.id / 'cohort_multiqc.html',
+            'json': cohort.dataset.prefix() / 'qc' / 'cram' / cohort.id / 'cohort_multiqc_data.json',
+            'checks': cohort.dataset.prefix() / 'qc' / 'cram' / cohort.id / '.cohort_checks',
         }
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
@@ -277,6 +276,7 @@ class DragenCramMultiQC(CohortStage):
         #             paths.append(path)
         #             ending_to_trim.add(path.name.replace(sequencing_group.id, ''))
 
+        paths += dragen_metrics_paths
         if not paths:
             logging.warning('No CRAM QC found to aggregate with MultiQC')
             return self.make_outputs(cohort)
@@ -285,7 +285,6 @@ class DragenCramMultiQC(CohortStage):
         extra_config = config_retrieve(['workflow', 'cram_multiqc', 'extra_config'], default={})
         extra_config['table_columns_visible'] = {'FastQC': False}
 
-        paths += dragen_metrics_paths
         jobs = multiqc(
             get_batch(),
             tmp_prefix=cohort.dataset.tmp_prefix() / 'multiqc' / 'cram',
