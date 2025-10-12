@@ -34,7 +34,7 @@ def cli_main():
 
     stages = [DragenCramMultiQC]
 
-    run_workflow(stages=stages, dry_run=args.dry_run)
+    run_workflow(name='dragen_multi_qc', stages=stages, dry_run=args.dry_run)
 
 
 if __name__ == '__main__':
