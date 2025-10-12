@@ -24,6 +24,7 @@ Each Stage should be a Class, and should inherit from one of
 import dataclasses
 import logging
 from collections.abc import Callable
+from typing import Any
 
 from cpg_flow.filetypes import CramPath
 from cpg_flow.stage import (
@@ -101,8 +102,9 @@ class DragenCramQC(SequencingGroupStage):
         return outs
 
     def queue_jobs(self, sequencing_group: SequencingGroup, inputs: StageInput) -> StageOutput | None:
-        cram_path = inputs.as_path(sequencing_group, Align, 'cram')
-        crai_path = inputs.as_path(sequencing_group, Align, 'crai')
+        dragen_cram_base = f'gs://cpg-bioheart-test/ica/dragen_3_7_8/output/cram/{sequencing_group.id}'
+        cram_path = to_path(f'{dragen_cram_base}.cram')
+        crai_path = to_path(f'{dragen_cram_base}.cram.crai')
 
         jobs = []
         # This should run if either the stage or the sequencing group is being forced.
@@ -327,11 +329,14 @@ class DragenGvcfQC(SequencingGroupStage):
         """
         Use function from the jobs module
         """
-        gvcf_path = inputs.as_path(sequencing_group, Genotype, 'gvcf')
+        gvcf_path: Path = f'gs://cpg-bioheart-test/ica/dragen_3_7_8/output/recal_gvcf/{sequencing_group.id}.hard-filtered.recal.gvcf.gz'
 
         j = vcf_qc(
             b=get_batch(),
-            vcf_or_gvcf=GvcfPath(gvcf_path).resource_group(get_batch()),
+            vcf_or_gvcf=get_batch().read_input_group(
+                **{'gvcf.gz':gvcf_path,
+                   'gvcf.gz.tbi': f'{gvcf_path}.tbi'
+                   }),
             is_gvcf=True,
             job_attrs=self.get_job_attrs(sequencing_group),
             output_summary_path=self.expected_outputs(sequencing_group)['qc_summary'],
@@ -339,6 +344,15 @@ class DragenGvcfQC(SequencingGroupStage):
             overwrite=sequencing_group.forced,
         )
         return self.make_outputs(sequencing_group, data=self.expected_outputs(sequencing_group), jobs=[j])
+
+def _update_meta(output_path: str) -> dict[str, Any]:
+    import json
+
+    from cloudpathlib import CloudPath
+
+    with CloudPath(output_path).open() as f:
+        d = json.load(f)
+    return {'multiqc': d['report_general_stats_data']}
 
 @stage(
     required_stages=[DragenGvcfQC],
