@@ -91,7 +91,7 @@ def multiqc(
     report_filename = 'report'
     cmd = f"""\
     mkdir inputs
-    cat {file_list} | gsutil -m cp -I inputs/
+    cat {file_list} | gsutil -m cp -r -I inputs/
 
     multiqc -f inputs -o output \\
     {f"--replace-names {sample_map_file} " if sample_map_file else ''} \\
