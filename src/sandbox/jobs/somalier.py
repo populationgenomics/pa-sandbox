@@ -20,7 +20,7 @@ from cpg_utils.hail_batch import (
 from hailtop.batch import Batch, Resource
 from hailtop.batch.job import Job
 
-from src.sandbox.jobs import check_pedigree
+from sandbox.jobs import check_pedigree
 
 # We want to exclude contaminated sequencing groups from relatedness checks. Somalier is not
 # designed to work with contaminated sequencing groups, and in a presence of contamination it
