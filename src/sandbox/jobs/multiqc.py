@@ -60,7 +60,7 @@ def multiqc(
 
     mqc_j = b.new_job(title, (job_attrs or {}) | dict(tool='MultiQC'))
     mqc_j.image(image_path('multiqc'))
-    STANDARD.set_resources(mqc_j, ncpu=16)
+    STANDARD.set_resources(j=mqc_j, ncpu=16)
 
     file_list_path = tmp_prefix / f'{dataset.get_alignment_inputs_hash()}_multiqc-file-list.txt'
     if not get_config()['workflow'].get('dry_run', False):
@@ -151,8 +151,8 @@ def check_report_job(
     if label:
         title += f' [{label}]'
     check_j = b.new_job(f'{title} check', (job_attrs or {}) | dict(tool='python'))
-    STANDARD.set_resources(check_j, ncpu=2)
-    check_j.image(image_path('cpg_workflows'))
+    STANDARD.set_resources(j=check_j, ncpu=2)
+    check_j.image(image_path('driver_image'))
 
     script_path = to_path(check_multiqc.__file__)
     script_name = script_path.name
