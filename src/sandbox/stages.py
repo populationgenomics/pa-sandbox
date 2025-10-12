@@ -96,15 +96,14 @@ class DragenCramQC(SequencingGroupStage):
             for key, out in qc.outs.items():
                 if key == 'somalier':
                     # Somalier outputs will be written to self.dataset.prefix() / 'cram' / f'{self.id}.cram.somalier' regardless of input cram path.
-                    outs[key] = sequencing_group.make_cram_path().somalier_path
+                    outs[key] = sequencing_group.cram.somalier_path
                 elif out:
                     outs[key] = sequencing_group.dataset.prefix() / 'dragen_qc' / key / f'{sequencing_group.id}{out.suf}'
         return outs
 
     def queue_jobs(self, sequencing_group: SequencingGroup, inputs: StageInput) -> StageOutput | None:
-        dragen_cram_base = f'gs://cpg-bioheart-test/ica/dragen_3_7_8/output/cram/{sequencing_group.id}'
-        cram_path = to_path(f'{dragen_cram_base}.cram')
-        crai_path = to_path(f'{dragen_cram_base}.cram.crai')
+        cram_path = sequencing_group.cram
+        crai_path = sequencing_group.cram.index_path
 
         jobs = []
         # This should run if either the stage or the sequencing group is being forced.
@@ -201,7 +200,7 @@ class SomalierPedigree(DatasetStage):
 
 
 # @stage(required_stages=[DragenCramQC, SomalierPedigree], analysis_type='qc', analysis_keys=['json'])
-@stage(required_stages=[SomalierPedigree], analysis_type='qc', analysis_keys=['json'])
+@stage(analysis_type='qc', analysis_keys=['json'])
 class DragenCramMultiQC(CohortStage):
     """
     Run MultiQC to aggregate CRAM QC stats across a Cohort, rather than a Dataset.
@@ -246,16 +245,16 @@ class DragenCramMultiQC(CohortStage):
             ]
         paths = []
 
-        try:
-            somalier_samples = inputs.as_path(cohort, SomalierPedigree, key='samples')
-            somalier_pairs = inputs.as_path(cohort, SomalierPedigree, key='pairs')
-        except StageInputNotFoundError:
-            pass
-        else:
-            paths = [
-                somalier_samples,
-                somalier_pairs,
-            ]
+        # try:
+        #     somalier_samples = inputs.as_path(cohort, SomalierPedigree, key='samples')
+        #     somalier_pairs = inputs.as_path(cohort, SomalierPedigree, key='pairs')
+        # except StageInputNotFoundError:
+        #     pass
+        # else:
+            # paths = [
+            #     somalier_samples,
+            #     somalier_pairs,
+            # ]
 
         ending_to_trim = set()  # endings to trim to get sample names
         modules_to_trim_endings = set()
