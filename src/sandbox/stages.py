@@ -96,7 +96,7 @@ class DragenCramQC(SequencingGroupStage):
             for key, out in qc.outs.items():
                 if key == 'somalier':
                     # Somalier outputs will be written to self.dataset.prefix() / 'cram' / f'{self.id}.cram.somalier' regardless of input cram path.
-                    outs[key] = sequencing_group.cram.somalier_path
+                    outs[key] = sequencing_group.dataset.prefix() / 'dragen_qc' / key / f'{sequencing_group.id}.somalier'
                 elif out:
                     outs[key] = sequencing_group.dataset.prefix() / 'dragen_qc' / key / f'{sequencing_group.id}{out.suf}'
         return outs
