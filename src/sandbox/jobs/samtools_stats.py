@@ -28,7 +28,7 @@ def samtools_stats(
     j = b.new_job('samtools stats', job_attrs)
 
     j.image(image_path('samtools'))
-    res = STANDARD.set_resources(j, fraction=1)
+    res = STANDARD.set_resources(j=j, fraction=1)
     reference = fasta_res_group(b)
 
     assert cram_path.index_path
