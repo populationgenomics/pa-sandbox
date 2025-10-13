@@ -198,9 +198,7 @@ class SomalierPedigree(DatasetStage):
         return self.make_outputs(dataset, skipped=True)
 
 
-
-# @stage(required_stages=[DragenCramQC, SomalierPedigree], analysis_type='qc', analysis_keys=['json'])
-@stage(analysis_type='qc', analysis_keys=['json'])
+@stage(required_stages=[DragenCramQC, SomalierPedigree], analysis_type='qc', analysis_keys=['json'])
 class DragenCramMultiQC(CohortStage):
     """
     Run MultiQC to aggregate CRAM QC stats across a Cohort, rather than a Dataset.
@@ -244,39 +242,39 @@ class DragenCramMultiQC(CohortStage):
             ]
         paths = []
 
-        # try:
-        #     somalier_samples = inputs.as_path(cohort, SomalierPedigree, key='samples')
-        #     somalier_pairs = inputs.as_path(cohort, SomalierPedigree, key='pairs')
-        # except StageInputNotFoundError:
-        #     pass
-        # else:
-            # paths = [
-            #     somalier_samples,
-            #     somalier_pairs,
-            # ]
+        try:
+            somalier_samples = inputs.as_path(cohort, SomalierPedigree, key='samples')
+            somalier_pairs = inputs.as_path(cohort, SomalierPedigree, key='pairs')
+        except StageInputNotFoundError:
+            pass
+        else:
+            paths = [
+                somalier_samples,
+                somalier_pairs,
+            ]
 
         ending_to_trim = set()  # endings to trim to get sample names
         modules_to_trim_endings = set()
 
-        # NOTE: Commenting out because we need a way to represent default DRAGEN CRAM paths.
-        # for sequencing_group in cohort.get_sequencing_groups():
-        #     for qc in qc_functions():
-        #         for key, out in qc.outs.items():
-        #             if not out:
-        #                 continue
-        #             try:
-        #                 path = inputs.as_path(sequencing_group, CramQC, key)
-        #             except StageInputNotFoundError:  # allow missing inputs
-        #                 logging.warning(
-        #                     f'Output CramQc/"{key}" not found for {sequencing_group}, '
-        #                     f'it will be silently excluded from MultiQC',
-        #                 )
-        #                 continue
-        #             modules_to_trim_endings.add(out.multiqc_key)
-        #             paths.append(path)
-        #             ending_to_trim.add(path.name.replace(sequencing_group.id, ''))
+        for sequencing_group in cohort.get_sequencing_groups():
+            for qc in qc_functions():
+                for key, out in qc.outs.items():
+                    if not out:
+                        continue
+                    try:
+                        path = inputs.as_path(sequencing_group, DragenCramQC, key)
+                    except StageInputNotFoundError:  # allow missing inputs
+                        logging.warning(
+                            f'Output DragenCramQC/"{key}" not found for {sequencing_group}, '
+                            f'it will be silently excluded from MultiQC',
+                        )
+                        continue
+                    modules_to_trim_endings.add(out.multiqc_key)
+                    paths.append(path)
+                    ending_to_trim.add(path.name.replace(sequencing_group.id, ''))
 
         paths += dragen_metrics_paths
+
         if not paths:
             logging.warning('No CRAM QC found to aggregate with MultiQC')
             return self.make_outputs(cohort)
