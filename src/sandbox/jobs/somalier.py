@@ -256,7 +256,7 @@ def extract(
     storage_gb = None  # avoid extra disk by default
     if get_config()['workflow']['sequencing_type'] == 'genome':
         storage_gb = 100
-    STANDARD.set_resources(j, ncpu=4, storage_gb=storage_gb)
+    STANDARD.set_resources(j=j, ncpu=4, storage_gb=storage_gb)
 
     ref = fasta_res_group(b)
     sites = b.read_input(reference_path('somalier_sites'))
