@@ -79,7 +79,7 @@ def qc_functions() -> list[Qc]:
     return [
         Qc(func=somalier.extract, outs={'somalier': None}),
         Qc(
-            func=verifybamid,
+            func=verifybamid.verifybamid,
             outs={'verify_bamid': QcOut('.verify-bamid.selfSM', 'verifybamid/selfsm')},
         ),
     ]
