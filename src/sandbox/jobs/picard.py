@@ -3,8 +3,10 @@ Create Hail Batch jobs to run Picard tools (marking duplicates, QC).
 """
 
 import hailtop.batch as hb
+from cpg_flow.filetypes import CramPath
 from cpg_flow.resources import (
     STANDARD,
+    storage_for_cram_qc_job,
     storage_for_joint_vcf,
 )
 from cpg_flow.utils import can_reuse, exists
@@ -70,7 +72,7 @@ def get_intervals(
         attributes=(job_attrs or {}) | dict(tool='picard IntervalListTools'),
     )
     j.image(image_path('picard'))
-    STANDARD.set_resources(j, storage_gb=16, mem_gb=2)
+    STANDARD.set_resources(j=j, storage_gb=16, mem_gb=2)
 
     break_bands_at_multiples_of = {
         'genome': 100000,
@@ -142,7 +144,7 @@ def vcf_qc(
     j = b.new_job('CollectVariantCallingMetrics', job_attrs)
     j.image(image_path('picard'))
     storage_gb = 20 if is_gvcf else storage_for_joint_vcf(sequencing_group_count, site_only=False)
-    res = STANDARD.set_resources(j, storage_gb=storage_gb, mem_gb=3)
+    res = STANDARD.set_resources(j=j, storage_gb=storage_gb, mem_gb=3)
     reference = fasta_res_group(b)
     dbsnp_vcf = b.read_input_group(
         base=reference_path('broad/dbsnp_vcf'),
@@ -173,4 +175,203 @@ def vcf_qc(
         b.write_output(j.summary, str(output_summary_path))
     if output_detail_path:
         b.write_output(j.detail, str(output_detail_path))
+    return j
+
+
+def picard_collect_metrics(
+    b,
+    cram_path: CramPath,
+    out_alignment_summary_metrics_path: Path,
+    out_base_distribution_by_cycle_metrics_path: Path,
+    out_insert_size_metrics_path: Path,
+    out_quality_by_cycle_metrics_path: Path,
+    out_quality_yield_metrics_path: Path,
+    job_attrs: dict | None = None,
+    overwrite: bool = False,
+) -> Job | None:
+    """
+    Run picard CollectMultipleMetrics metrics for sample QC.
+    Based on https://github.com/broadinstitute/warp/blob/master/tasks/broad/Qc.wdl#L141
+    """
+    if can_reuse(
+        [
+            out_alignment_summary_metrics_path,
+            out_base_distribution_by_cycle_metrics_path,
+            out_insert_size_metrics_path,
+            out_quality_by_cycle_metrics_path,
+            out_quality_yield_metrics_path,
+        ],
+        overwrite,
+    ):
+        return None
+
+    job_attrs = (job_attrs or {}) | {'tool': 'picard_CollectMultipleMetrics'}
+    j = b.new_job('Picard CollectMultipleMetrics', job_attrs)
+    j.image(image_path('picard'))
+    res = STANDARD.request_resources(ncpu=2)
+    res.attach_disk_storage_gb = storage_for_cram_qc_job()
+    res.set_to_job(j)
+    reference = fasta_res_group(b)
+    # define variable for whether picard output is sorted or not
+    sorted_output = get_config()['cramqc']['assume_sorted']
+
+    assert cram_path.index_path
+    cmd = f"""\
+    CRAM=$BATCH_TMPDIR/{cram_path.path.name}
+    CRAI=$BATCH_TMPDIR/{cram_path.index_path.name}
+
+    # Retrying copying to avoid google bandwidth limits
+    retry_gs_cp {cram_path.path!s} $CRAM
+    retry_gs_cp {cram_path.index_path!s} $CRAI
+
+    picard {res.java_mem_options()} \\
+      CollectMultipleMetrics \\
+      INPUT=$CRAM \\
+      REFERENCE_SEQUENCE={reference.base} \\
+      OUTPUT=$BATCH_TMPDIR/prefix \\
+      ASSUME_SORTED={sorted_output} \\
+      PROGRAM=null \\
+      VALIDATION_STRINGENCY=SILENT \\
+      PROGRAM=CollectAlignmentSummaryMetrics \\
+      PROGRAM=CollectInsertSizeMetrics \\
+      PROGRAM=MeanQualityByCycle \\
+      PROGRAM=CollectBaseDistributionByCycle \\
+      PROGRAM=CollectQualityYieldMetrics \\
+      METRIC_ACCUMULATION_LEVEL=null \\
+      METRIC_ACCUMULATION_LEVEL=SAMPLE
+
+    ls $BATCH_TMPDIR/
+    cp $BATCH_TMPDIR/prefix.alignment_summary_metrics {j.out_alignment_summary_metrics}
+    cp $BATCH_TMPDIR/prefix.base_distribution_by_cycle_metrics {j.out_base_distribution_by_cycle_metrics}
+    cp $BATCH_TMPDIR/prefix.insert_size_metrics {j.out_insert_size_metrics}
+    cp $BATCH_TMPDIR/prefix.quality_by_cycle_metrics {j.out_quality_by_cycle_metrics}
+    cp $BATCH_TMPDIR/prefix.quality_yield_metrics {j.out_quality_yield_metrics}
+    """
+
+    j.command(command(cmd, define_retry_function=True))
+    b.write_output(j.out_alignment_summary_metrics, str(out_alignment_summary_metrics_path))
+    b.write_output(j.out_insert_size_metrics, str(out_insert_size_metrics_path))
+    b.write_output(j.out_quality_by_cycle_metrics, str(out_quality_by_cycle_metrics_path))
+    b.write_output(
+        j.out_base_distribution_by_cycle_metrics,
+        str(out_base_distribution_by_cycle_metrics_path),
+    )
+    b.write_output(j.out_quality_yield_metrics, str(out_quality_yield_metrics_path))
+    return j
+
+
+def picard_hs_metrics(
+    b,
+    cram_path: CramPath,
+    job_attrs: dict | None = None,
+    out_picard_hs_metrics_path: Path | None = None,
+    overwrite: bool = False,
+) -> Job | None:
+    """
+    Run picard CollectHsMetrics metrics.
+    Based on https://github.com/broadinstitute/warp/blob/master/tasks/broad/Qc.wdl#L528
+    """
+    if can_reuse(out_picard_hs_metrics_path, overwrite):
+        return None
+
+    job_attrs = (job_attrs or {}) | {'tool': 'picard_CollectHsMetrics'}
+    j = b.new_job('Picard CollectHsMetrics', job_attrs)
+    j.image(image_path('picard'))
+    sequencing_type = get_config()['workflow']['sequencing_type']
+    assert sequencing_type == 'exome'
+    res = STANDARD.request_resources(ncpu=2)
+    res.attach_disk_storage_gb = storage_for_cram_qc_job()
+    res.set_to_job(j)
+    reference = fasta_res_group(b)
+    interval_file = b.read_input(reference_path('broad/exome_evaluation_interval_lists'))
+
+    assert cram_path.index_path
+    cmd = f"""\
+    CRAM=$BATCH_TMPDIR/{cram_path.path.name}
+    CRAI=$BATCH_TMPDIR/{cram_path.index_path.name}
+
+    # Retrying copying to avoid google bandwidth limits
+    retry_gs_cp {cram_path.path!s} $CRAM
+    retry_gs_cp {cram_path.index_path!s} $CRAI
+
+    # Picard is strict about the interval-list file header - contigs md5s, etc. - and
+    # if md5s do not match the ref.dict file, picard would crash. So fixing the header
+    # by converting the interval-list to bed (i.e. effectively dropping the header)
+    # and back to interval-list (effectively re-adding the header from input ref-dict).
+    # VALIDATION_STRINGENCY=SILENT does not help.
+    picard IntervalListToBed \\
+    I={interval_file} \\
+    O=$BATCH_TMPDIR/intervals.bed
+    picard BedToIntervalList \\
+    I=$BATCH_TMPDIR/intervals.bed \\
+    O=$BATCH_TMPDIR/intervals.interval_list \\
+    SD={reference.dict}
+
+    picard {res.java_mem_options()} \\
+      CollectHsMetrics \\
+      INPUT=$CRAM \\
+      REFERENCE_SEQUENCE={reference.base} \\
+      VALIDATION_STRINGENCY=SILENT \\
+      TARGET_INTERVALS=$BATCH_TMPDIR/intervals.interval_list \\
+      BAIT_INTERVALS=$BATCH_TMPDIR/intervals.interval_list \\
+      METRIC_ACCUMULATION_LEVEL=null \\
+      METRIC_ACCUMULATION_LEVEL=SAMPLE \\
+      METRIC_ACCUMULATION_LEVEL=LIBRARY \\
+      OUTPUT={j.out_hs_metrics}
+    """
+
+    j.command(command(cmd, define_retry_function=True))
+    b.write_output(j.out_hs_metrics, str(out_picard_hs_metrics_path))
+    return j
+
+
+def picard_wgs_metrics(
+    b,
+    cram_path: CramPath,
+    out_picard_wgs_metrics_path: Path,
+    job_attrs: dict | None = None,
+    overwrite: bool = False,
+    read_length: int = 250,
+) -> Job | None:
+    """
+    Run picard CollectWgsMetrics metrics.
+    Based on https://github.com/broadinstitute/warp/blob/e1ac6718efd7475ca373b7988f81e54efab608b4/tasks/broad/Qc.wdl#L444
+    """
+    if can_reuse(out_picard_wgs_metrics_path, overwrite):
+        return None
+
+    job_attrs = (job_attrs or {}) | {'tool': 'picard_CollectWgsMetrics'}
+    j = b.new_job('Picard CollectWgsMetrics', job_attrs)
+
+    j.image(image_path('picard'))
+    sequencing_type = get_config()['workflow']['sequencing_type']
+    assert sequencing_type == 'genome'
+    res = STANDARD.request_resources(ncpu=2)
+    res.attach_disk_storage_gb = storage_for_cram_qc_job()
+    res.set_to_job(j)
+    reference = fasta_res_group(b)
+    interval_file = b.read_input(reference_path('broad/genome_coverage_interval_list'))
+
+    assert cram_path.index_path
+    cmd = f"""\
+    CRAM=$BATCH_TMPDIR/{cram_path.path.name}
+    CRAI=$BATCH_TMPDIR/{cram_path.index_path.name}
+
+    # Retrying copying to avoid google bandwidth limits
+    retry_gs_cp {cram_path.path!s} $CRAM
+    retry_gs_cp {cram_path.index_path!s} $CRAI
+
+    picard {res.java_mem_options()} \\
+      CollectWgsMetrics \\
+      INPUT=$CRAM \\
+      VALIDATION_STRINGENCY=SILENT \\
+      REFERENCE_SEQUENCE={reference.base} \\
+      INTERVALS={interval_file} \\
+      OUTPUT={j.out_csv} \\
+      USE_FAST_ALGORITHM=true \\
+      READ_LENGTH={read_length}
+    """
+
+    j.command(command(cmd, define_retry_function=True))
+    b.write_output(j.out_csv, str(out_picard_wgs_metrics_path))
     return j
