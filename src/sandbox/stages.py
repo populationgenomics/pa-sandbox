@@ -285,7 +285,7 @@ class DragenCramMultiQC(CohortStage):
             paths=paths,
             ending_to_trim=ending_to_trim,
             modules_to_trim_endings=modules_to_trim_endings,
-            dataset=cohort.dataset,
+            cohort=cohort,
             out_json_path=json_path,
             out_html_path=html_path,
             out_html_url=html_url,
