@@ -43,12 +43,18 @@ logging.getLogger().setLevel(logging.DEBUG)
     'send_to_slack',
     help='Send log to Slack message, according to environment variables SLACK_CHANNEL and SLACK_TOKEN',
 )
+@click.option(
+    '--failed-samples-path',
+    'failed_samples_path',
+    help='Path to write JSON file with failed samples and their failed metrics',
+)
 def main(
     multiqc_json_path: str,
     html_url: str | None = None,
     dataset: str | None = None,
     title: str | None = None,
     send_to_slack: bool = True,
+    failed_samples_path: str | None = None,
 ):
     """
     Check metrics in MultiQC json and send info about failed samples
@@ -60,6 +66,7 @@ def main(
         dataset=dataset,
         title=title,
         send_to_slack=send_to_slack,
+        failed_samples_path=failed_samples_path,
     )
 
 QC_MAPPING = {
@@ -152,6 +159,7 @@ def run(
     dataset: str | None = None,
     title: str | None = None,
     send_to_slack: bool = True,
+    failed_samples_path: str | None = None,
 ):
     seq_type = get_config()['workflow']['sequencing_type']
 
@@ -193,6 +201,11 @@ def run(
                         line = f'{display_name}={val:.4f} {good_sign} {threshold:.4f}'
                         logging.info(f'✅ {sg_id}: {line}')
     logging.info('')
+
+    if bad_lines_by_sample and failed_samples_path:
+        logging.info(f'Writing {len(bad_lines_by_sample)} failed sample(s) to {failed_samples_path}')
+        with to_path(failed_samples_path).open('w') as f:
+            json.dump(bad_lines_by_sample, f, indent=2)
 
     # Constructing Slack message
     if dataset and html_url:
