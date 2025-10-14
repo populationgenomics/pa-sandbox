@@ -24,6 +24,7 @@ classifiers=[
 
 dependencies=[
     'cpg-flow>=v0.2.2',
+    'slack_sdk>=3.37.0',
 ]
 
 [project.urls]
