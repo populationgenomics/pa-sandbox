@@ -209,9 +209,9 @@ class DragenCramMultiQC(CohortStage):
         """
         dragen_prefix = 'ica/dragen_3_7_8/qc'
         return {
-            'html': cohort.dataset.web_prefix() / dragen_prefix/ cohort.id / 'cohort_multiqc.html',
-            'json': cohort.dataset.prefix() / dragen_prefix/ cohort.id / 'cohort_multiqc_data.json',
-            'checks': cohort.dataset.prefix() / dragen_prefix/ cohort.id / '.cohort_checks',
+            'html': cohort.dataset.web_prefix() / dragen_prefix/ cohort.id / 'multiqc' / 'cohort_multiqc.html',
+            'json': cohort.dataset.prefix() / dragen_prefix/ cohort.id / 'multiqc' / 'cohort_multiqc_data.json',
+            'checks': cohort.dataset.prefix() / dragen_prefix/ cohort.id / 'multiqc' / '.cohort_checks',
         }
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
