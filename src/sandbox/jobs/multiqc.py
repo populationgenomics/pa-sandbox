@@ -6,20 +6,48 @@ Batch jobs to run MultiQC.
 from typing import cast
 
 from cpg_flow.resources import STANDARD
-from cpg_flow.targets import Dataset
+from cpg_flow.targets import Cohort
 from cpg_flow.utils import rich_sequencing_group_id_seds
 from cpg_utils import Path, to_path
 from cpg_utils.config import config_retrieve, get_config, image_path
 from cpg_utils.hail_batch import command, copy_common_env
 from hailtop.batch import Batch, ResourceFile
 from hailtop.batch.job import Job
+from metamist.graphql import gql, query
 
 from sandbox.jobs import check_multiqc
 
+REPORTED_SEX_QUERY = gql(
+    """
+    query MyQuery($cohortId: String!) {
+        cohorts(id: {eq: $cohortId}) {
+            sequencingGroups {
+            id
+            sample {
+                participant {
+                    reportedSex
+                }
+            }
+        }
+    }
+}
+""",
+)
+
+def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
+    """
+    Get a mapping of sequencing group ID to reported sex.
+    """
+    mapping: dict[str, int] = {}
+    response = query(REPORTED_SEX_QUERY, variables={'cohortId': cohort.id})
+    for coh in response['data']['cohorts']:
+            for sg in coh['sequencingGroups']:
+                mapping[sg['id']] = sg['sample']['participant']['reportedSex']
+    return mapping
 
 def multiqc(
     b: Batch,
-    dataset: Dataset,
+    cohort: Cohort,
     tmp_prefix: Path,
     paths: list[Path],
     out_json_path: Path,
@@ -39,7 +67,7 @@ def multiqc(
     @param b: batch object
     @param tmp_prefix: bucket for tmp files
     @param paths: file bucket paths to pass into MultiQC
-    @param dataset: Dataset object
+    @param cohort: Cohort object
     @param out_json_path: where to write MultiQC-generated JSON file
     @param out_html_path: where to write the HTML report
     @param out_html_url: URL corresponding to the HTML report
@@ -58,11 +86,14 @@ def multiqc(
     if label:
         title += f' [{label}]'
 
+    sg_reported_sex_mapping: dict[str, str] = get_sgid_reported_sex_mapping(cohort)
+    print(f'Sequencing group to reported sex mapping: {sg_reported_sex_mapping}')
+
     mqc_j = b.new_job(title, (job_attrs or {}) | dict(tool='MultiQC'))
     mqc_j.image(image_path('multiqc', '1.30-3'))
     STANDARD.set_resources(j=mqc_j, ncpu=16)
 
-    file_list_path = tmp_prefix / f'{dataset.get_alignment_inputs_hash()}_multiqc-file-list.txt'
+    file_list_path = tmp_prefix / f'{cohort.get_alignment_inputs_hash()}_multiqc-file-list.txt'
     if not get_config()['workflow'].get('dry_run', False):
         with file_list_path.open('w') as f:
             f.writelines([f'{p}\n' for p in paths])
@@ -72,7 +103,7 @@ def multiqc(
     modules_conf = ', '.join(list(modules_to_trim_endings)) if modules_to_trim_endings else ''
 
     if sequencing_group_id_map:
-        sample_map_path = tmp_prefix / f'{dataset.get_alignment_inputs_hash()}_rename-sample-map.tsv'
+        sample_map_path = tmp_prefix / f'{cohort.get_alignment_inputs_hash()}_rename-sample-map.tsv'
         if not get_config()['workflow'].get('dry_run', False):
             _write_sg_id_map(sequencing_group_id_map, sample_map_path)
         sample_map_file = b.read_input(str(sample_map_path))
@@ -95,7 +126,7 @@ def multiqc(
 
     multiqc -f inputs -o output \\
     {f"--replace-names {sample_map_file} " if sample_map_file else ''} \\
-    --title "{title} for dataset <b>{dataset.name}</b>" \\
+    --title "{title} for dataset <b>{cohort.dataset.name}</b>" \\
     --filename {report_filename}.html \\
     --cl-config "extra_fn_clean_exts: [{endings_conf}]" \\
     --cl-config "max_table_rows: 10000" \\
@@ -120,8 +151,8 @@ def multiqc(
             b=b,
             multiqc_json_file=mqc_j.json,
             multiqc_html_url=out_html_url,
-            rich_id_map=dataset.rich_id_map(),
-            dataset_name=dataset.name,
+            rich_id_map=cohort.dataset.rich_id_map(),
+            dataset_name=cohort.id,
             label=label,
             out_checks_path=out_checks_path,
             job_attrs=job_attrs,
@@ -135,7 +166,7 @@ def multiqc(
 def check_report_job(
     b: Batch,
     multiqc_json_file: ResourceFile,
-    dataset_name: str,
+    cohort_id: str,
     multiqc_html_url: str | None = None,
     label: str | None = None,
     rich_id_map: dict[str, str] | None = None,
@@ -163,7 +194,7 @@ def check_report_job(
     python3 {script_name} \\
     --multiqc-json {multiqc_json_file} \\
     --html-url {multiqc_html_url} \\
-    --dataset {dataset_name} \\
+    --cohort {cohort_id} \\
     --title "{title}" \\
     --{"no-" if not send_to_slack else ""}send-to-slack \\
     --failed-samples-path {check_j.output}

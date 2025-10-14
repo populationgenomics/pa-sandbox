@@ -36,7 +36,7 @@ logging.getLogger().setLevel(logging.DEBUG)
     'html_url',
     help='MultiQC HTML URL',
 )
-@click.option('--dataset', 'dataset', help='Dataset name')
+@click.option('--cohort-id', 'cohort_id', help='Cohort ID')
 @click.option('--title', 'title', help='Report title')
 @click.option(
     '--send-to-slack/--no-send-to-slack',
@@ -51,7 +51,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 def main(
     multiqc_json_path: str,
     html_url: str | None = None,
-    dataset: str | None = None,
+    cohort_id: str | None = None,
     title: str | None = None,
     send_to_slack: bool = True,
     failed_samples_path: str | None = None,
@@ -63,7 +63,7 @@ def main(
     run(
         multiqc_json_path=multiqc_json_path,
         html_url=html_url,
-        dataset=dataset,
+        cohort_id=cohort_id,
         title=title,
         send_to_slack=send_to_slack,
         failed_samples_path=failed_samples_path,
@@ -156,7 +156,7 @@ def build_qc_thresholds(seq_type: str, config_key: str) -> dict[str, dict]:
 def run(
     multiqc_json_path: str,
     html_url: str | None = None,
-    dataset: str | None = None,
+    cohort_id: str | None = None,
     title: str | None = None,
     send_to_slack: bool = True,
     failed_samples_path: str | None = None,
@@ -208,8 +208,8 @@ def run(
             json.dump(bad_lines_by_sample, f, indent=2)
 
     # Constructing Slack message
-    if dataset and html_url:
-        title = f'*[{dataset}]* <{html_url}|{title or "MultiQC report"}>'
+    if cohort_id and html_url:
+        title = f'*[{cohort_id}]* <{html_url}|{title or "MultiQC report"}>'
     elif not title:
         title = 'MultiQC report'
     messages = []
