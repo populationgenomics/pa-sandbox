@@ -40,7 +40,8 @@ def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
     """
     mapping: dict[str, int] = {}
     response = query(REPORTED_SEX_QUERY, variables={'cohortId': cohort.id})
-    for coh in response['data']['cohorts']:
+    print(response)
+    for coh in response['cohorts']:
             for sg in coh['sequencingGroups']:
                 mapping[sg['id']] = sg['sample']['participant']['reportedSex']
     return mapping
