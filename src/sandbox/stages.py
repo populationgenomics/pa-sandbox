@@ -42,7 +42,7 @@ from cpg_utils import Path, to_path
 from cpg_utils.config import config_retrieve
 from cpg_utils.hail_batch import get_batch
 
-from sandbox.jobs import picard, samtools_stats, somalier, verifybamid
+from sandbox.jobs import somalier, verifybamid
 from sandbox.jobs.multiqc import multiqc
 from sandbox.jobs.picard import vcf_qc
 
@@ -76,47 +76,13 @@ def qc_functions() -> list[Qc]:
     if config_retrieve(['workflow', 'skip_qc'], False):
         return []
 
-    qcs = [
+    return [
         Qc(func=somalier.extract, outs={'somalier': None}),
         Qc(
             func=verifybamid.verifybamid,
             outs={'verify_bamid': QcOut('.verify-bamid.selfSM', 'verifybamid/selfsm')},
         ),
-        Qc(
-            func=samtools_stats.samtools_stats,
-            outs={'samtools_stats': QcOut('.samtools-stats', 'samtools/stats')},
-        ),
-        Qc(
-            func=picard.picard_collect_metrics,
-            outs={
-                'alignment_summary_metrics': QcOut('.alignment_summary_metrics', 'picard/alignment_metrics'),
-                'base_distribution_by_cycle_metrics': QcOut(
-                    '.base_distribution_by_cycle_metrics',
-                    'picard/basedistributionbycycle',
-                ),
-                'insert_size_metrics': QcOut('.insert_size_metrics', 'picard/insertsize'),
-                'quality_by_cycle_metrics': QcOut('.quality_by_cycle_metrics', 'picard/quality_by_cycle'),
-                'quality_yield_metrics': QcOut('.quality_yield_metrics', 'picard/quality_yield_metrics'),
-            },
-        ),
     ]
-    sequencing_type = config_retrieve(['workflow', 'sequencing_type'])
-    if sequencing_type == 'genome':
-        qcs.append(
-            Qc(
-                func=picard.picard_wgs_metrics,
-                outs={'picard_wgs_metrics': QcOut('.picard-wgs-metrics', 'picard/wgs_metrics')},
-            ),
-        )
-    if sequencing_type == 'exome':
-        qcs.append(
-            Qc(
-                func=picard.picard_hs_metrics,
-                outs={'picard_hs_metrics': QcOut('.picard-hs-metrics', 'picard/hsmetrics')},
-            ),
-        )
-
-    return qcs
 
 @stage()
 class DragenCramQC(SequencingGroupStage):
