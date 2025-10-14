@@ -24,7 +24,6 @@ Each Stage should be a Class, and should inherit from one of
 import dataclasses
 import logging
 from collections.abc import Callable
-from typing import Any
 
 from cpg_flow.filetypes import CramPath
 from cpg_flow.stage import (
@@ -44,7 +43,6 @@ from cpg_utils.hail_batch import get_batch
 
 from sandbox.jobs import somalier, verifybamid
 from sandbox.jobs.multiqc import multiqc
-from sandbox.jobs.picard import vcf_qc
 
 
 # There are the above QC functionality, but I wonder how many of these metrics
@@ -91,14 +89,15 @@ class DragenCramQC(SequencingGroupStage):
     """
 
     def expected_outputs(self, sequencing_group: SequencingGroup) -> dict[str, Path]:
+        dragen_prefix = 'ica/dragen_3_7_8/qc'
         outs = {}
         for qc in qc_functions():
             for key, out in qc.outs.items():
                 if key == 'somalier':
                     # Somalier outputs will be written to self.dataset.prefix() / 'cram' / f'{self.id}.cram.somalier' regardless of input cram path.
-                    outs[key] = sequencing_group.dataset.prefix() / 'dragen_qc' / key / f'{sequencing_group.id}.somalier'
+                    outs[key] = sequencing_group.dataset.prefix() / dragen_prefix / key / f'{sequencing_group.id}.somalier'
                 elif out:
-                    outs[key] = sequencing_group.dataset.prefix() / 'dragen_qc' / key / f'{sequencing_group.id}{out.suf}'
+                    outs[key] = sequencing_group.dataset.prefix() / dragen_prefix / key / f'{sequencing_group.id}{out.suf}'
         return outs
 
     def queue_jobs(self, sequencing_group: SequencingGroup, inputs: StageInput) -> StageOutput | None:
@@ -208,14 +207,11 @@ class DragenCramMultiQC(CohortStage):
         """
         Expected to produce an HTML and a corresponding JSON file.
         """
-        if config_retrieve(['workflow', 'skip_qc'], False):
-            return {}
-
-        # get the unique hash for these Sequencing Groups
+        dragen_prefix = 'ica/dragen_3_7_8/qc'
         return {
-            'html': cohort.dataset.web_prefix() / 'qc' / 'cram' / cohort.id / 'cohort_multiqc.html',
-            'json': cohort.dataset.prefix() / 'qc' / 'cram' / cohort.id / 'cohort_multiqc_data.json',
-            'checks': cohort.dataset.prefix() / 'qc' / 'cram' / cohort.id / '.cohort_checks',
+            'html': cohort.dataset.web_prefix() / dragen_prefix/ cohort.id / 'cohort_multiqc.html',
+            'json': cohort.dataset.prefix() / dragen_prefix/ cohort.id / 'cohort_multiqc_data.json',
+            'checks': cohort.dataset.prefix() / dragen_prefix/ cohort.id / '.cohort_checks',
         }
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
@@ -301,140 +297,13 @@ class DragenCramMultiQC(CohortStage):
             extra_config=extra_config,
         )
         return self.make_outputs(cohort, data=self.expected_outputs(cohort), jobs=jobs)
-
-@stage()
-class DragenGvcfQC(SequencingGroupStage):
+@stage(required_stages=[DragenCramMultiQC], analysis_type='qc', analysis_keys=['json'])
+class DragenCheckMiltiQC(CohortStage):
     """
-    Calling tools that process GVCF for QC purposes.
-    """
-
-    def expected_outputs(self, sequencing_group: SequencingGroup) -> dict[str, Path]:
-        """
-        Generate a GVCF and corresponding TBI index, as well as QC.
-        """
-        outs: dict[str, Path] = {}
-        if not config_retrieve(['workflow', 'skip_qc'], False):
-            qc_prefix = sequencing_group.dataset.prefix() / 'qc' / sequencing_group.id
-            outs |= {
-                'qc_summary': to_path(f'{qc_prefix}.variant_calling_summary_metrics'),
-                'qc_detail': to_path(f'{qc_prefix}.variant_calling_detail_metrics'),
-            }
-        return outs
-
-    def queue_jobs(self, sequencing_group: SequencingGroup, inputs: StageInput) -> StageOutput | None:
-        """
-        Use function from the jobs module
-        """
-        gvcf_path: Path = f'gs://cpg-bioheart-test/ica/dragen_3_7_8/output/recal_gvcf/{sequencing_group.id}.hard-filtered.recal.gvcf.gz'
-
-        j = vcf_qc(
-            b=get_batch(),
-            vcf_or_gvcf=get_batch().read_input_group(
-                **{'gvcf.gz':gvcf_path,
-                   'gvcf.gz.tbi': f'{gvcf_path}.tbi'
-                   }),
-            is_gvcf=True,
-            job_attrs=self.get_job_attrs(sequencing_group),
-            output_summary_path=self.expected_outputs(sequencing_group)['qc_summary'],
-            output_detail_path=self.expected_outputs(sequencing_group)['qc_detail'],
-            overwrite=sequencing_group.forced,
-        )
-        return self.make_outputs(sequencing_group, data=self.expected_outputs(sequencing_group), jobs=[j])
-
-def _update_meta(output_path: str) -> dict[str, Any]:
-    import json
-
-    from cloudpathlib import CloudPath
-
-    with CloudPath(output_path).open() as f:
-        d = json.load(f)
-    return {'multiqc': d['report_general_stats_data']}
-
-@stage(
-    required_stages=[DragenGvcfQC],
-    analysis_type='qc',
-    analysis_keys=['json'],
-    update_analysis_meta=_update_meta,
-)
-class GvcfMultiQC(CohortStage):
-    """
-    Run MultiQC to summarise all GVCF QC.
+    Check MultiQC report against defined thresholds.
     """
 
     def expected_outputs(self, cohort: Cohort) -> dict[str, Path]:
-        """
-        Expected to produce an HTML and a corresponding JSON file.
-        """
-        if config_retrieve(['workflow', 'skip_qc'], False):
-            return {}
-
-        # get the unique hash for these Sequencing Groups
-        sg_hash = cohort.get_alignment_inputs_hash()
         return {
-            'html': cohort.web_prefix() / 'qc' / 'gvcf' / sg_hash / 'multiqc.html',
-            'json': cohort.prefix() / 'qc' / 'gvcf' / sg_hash / 'multiqc_data.json',
-            'checks': cohort.prefix() / 'qc' / 'gvcf' / sg_hash / '.checks',
+            'checks': cohort.dataset.prefix() / 'qc' / 'cram' / cohort.id / '.cohort_checks',
         }
-
-    def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
-        """
-        Collect QC.
-        """
-        if config_retrieve(['workflow', 'skip_qc'], False):
-            return self.make_outputs(cohort)
-
-        json_path = self.expected_outputs(cohort)['json']
-        html_path = self.expected_outputs(cohort)['html']
-        checks_path = self.expected_outputs(cohort)['checks']
-        if base_url := cohort.web_url():
-            html_url = str(html_path).replace(str(cohort.web_prefix()), base_url)
-        else:
-            html_url = None
-
-        paths = []
-        ending_to_trim = set()  # endings to trim to get sample names
-
-        for sequencing_group in cohort.get_sequencing_groups():
-            for _stage, key in [(DragenGvcfQC, 'qc_detail')]:
-                try:
-                    path = inputs.as_path(sequencing_group, _stage, key)
-                except StageInputNotFoundError:  # allow missing inputs
-                        logging.warning(
-                            f'Output {_stage.__name__}/"{key}" not found for {sequencing_group}, '
-                            f'it will be silently excluded from MultiQC',
-                        )
-                else:
-                    paths.append(path)
-                    ending_to_trim.add(path.name.replace(sequencing_group.id, ''))
-
-        if not paths:
-            logging.warning('No GVCF QC found to aggregate with MultiQC')
-            return self.make_outputs(cohort)
-
-        modules_to_trim_endings = {'picard/variant_calling_metrics'}
-
-        send_to_slack = config_retrieve(['workflow', 'gvcf_multiqc', 'send_to_slack'], default=True)
-        extra_config = config_retrieve(['workflow', 'gvcf_multiqc', 'extra_config'], default={})
-        extra_config['table_columns_visible'] = {'Picard': True}
-
-        jobs = multiqc(
-            get_batch(),
-            tmp_prefix=cohort.tmp_prefix() / 'multiqc' / 'gvcf',
-            paths=paths,
-            ending_to_trim=ending_to_trim,
-            modules_to_trim_endings=modules_to_trim_endings,
-            cohort=cohort,
-            out_json_path=json_path,
-            out_html_path=html_path,
-            out_html_url=html_url,
-            out_checks_path=checks_path,
-            job_attrs=self.get_job_attrs(cohort),
-            sequencing_group_id_map=cohort.rich_id_map(),
-            extra_config=extra_config,
-            send_to_slack=send_to_slack,
-            label='GVCF',
-        )
-        return self.make_outputs(cohort, data=self.expected_outputs(cohort), jobs=jobs)
-@stage()
-class CheckSampleMetrics(CohortStage):
-    pass
