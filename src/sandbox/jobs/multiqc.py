@@ -165,7 +165,7 @@ def check_report_job(
     --html-url {multiqc_html_url} \\
     --dataset {dataset_name} \\
     --title "{title}" \\
-    --{"no-" if not send_to_slack else ""}send-to-slack
+    --{"no-" if not send_to_slack else ""}send-to-slack \\
     --failed-samples-path {check_j.output}
 
     echo "HTML URL: {multiqc_html_url}"
