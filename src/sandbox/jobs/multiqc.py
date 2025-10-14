@@ -153,7 +153,7 @@ def multiqc(
             multiqc_json_file=mqc_j.json,
             multiqc_html_url=out_html_url,
             rich_id_map=cohort.dataset.rich_id_map(),
-            dataset_name=cohort.id,
+            cohort_id=cohort.id,
             label=label,
             out_checks_path=out_checks_path,
             job_attrs=job_attrs,
