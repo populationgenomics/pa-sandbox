@@ -118,12 +118,12 @@ def build_qc_thresholds(seq_type: str, config_key: str) -> dict[str, dict]:
     Build a dictionary of desired QC thresholds from config.
     Example config structure:
         [qc_thresholds.genome.min]
-        "mean_coverage" = 30
-        "q30_bases" = 8e10
+        mean_coverage = 30
+        q30_bases = 8e10
         [qc_thresholds.genome.max]
-        "contamination_verifybamid" = 0.05
-        "contamination_dragen" = 0.03
-        "chimera_rate" = 0.03
+        contamination_verifybamid = 0.05
+        contamination_dragen = 0.03
+        chimera_rate = 0.03
     """
     threshold_d = get_config()['qc_thresholds'].get(seq_type, {}).get(config_key, {})
     qc_thresholds = {}
