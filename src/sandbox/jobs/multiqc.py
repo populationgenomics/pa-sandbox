@@ -9,7 +9,7 @@ from cpg_flow.resources import STANDARD
 from cpg_flow.targets import Dataset
 from cpg_flow.utils import rich_sequencing_group_id_seds
 from cpg_utils import Path, to_path
-from cpg_utils.config import get_config, image_path
+from cpg_utils.config import config_retrieve, get_config, image_path
 from cpg_utils.hail_batch import command, copy_common_env
 from hailtop.batch import Batch, ResourceFile
 from hailtop.batch.job import Job
@@ -152,7 +152,7 @@ def check_report_job(
         title += f' [{label}]'
     check_j = b.new_job(f'{title} check', (job_attrs or {}) | dict(tool='python'))
     STANDARD.set_resources(j=check_j, ncpu=2)
-    check_j.image(image_path('driver_image'))
+    check_j.image(image_path(config_retrieve(['workflow', 'driver_image'])))
 
     script_path = to_path(check_multiqc.__file__)
     script_name = script_path.name
