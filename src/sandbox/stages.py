@@ -275,8 +275,8 @@ class DragenCramMultiQC(CohortStage):
             logging.warning('No CRAM QC found to aggregate with MultiQC')
             return self.make_outputs(cohort)
 
-        send_to_slack = config_retrieve(['workflow', 'dragen_cram_multiqc', 'send_to_slack'], default=True)
-        extra_config = config_retrieve(['workflow', 'dragen_cram_multiqc', 'extra_config'], default={})
+        send_to_slack = config_retrieve(['workflow', 'cram_multiqc', 'send_to_slack'], default=True)
+        extra_config = config_retrieve(['workflow', 'cram_multiqc', 'extra_config'], default={})
         extra_config['table_columns_visible'] = {'FastQC': False}
 
         jobs = multiqc(
