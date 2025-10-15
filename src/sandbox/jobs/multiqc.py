@@ -195,7 +195,7 @@ def check_report_job(
     python3 {script_name} \\
     --multiqc-json {multiqc_json_file} \\
     --html-url {multiqc_html_url} \\
-    --cohort {cohort_id} \\
+    --cohort-id {cohort_id} \\
     --title "{title}" \\
     --{"no-" if not send_to_slack else ""}send-to-slack \\
     --failed-samples-path {check_j.output}
