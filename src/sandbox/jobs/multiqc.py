@@ -40,10 +40,9 @@ def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
     """
     mapping: dict[str, int] = {}
     response = query(REPORTED_SEX_QUERY, variables={'cohortId': cohort.id})
-    print(response)
     for coh in response['cohorts']:
-            for sg in coh['sequencingGroups']:
-                mapping[sg['id']] = sg['sample']['participant']['reportedSex']
+        for sg in coh   ['sequencingGroups']:
+            mapping[sg['id']] = sg['sample']['participant']['reportedSex']
     return mapping
 
 def multiqc(
@@ -87,8 +86,6 @@ def multiqc(
     if label:
         title += f' [{label}]'
 
-    sg_reported_sex_mapping: dict[str, str] = get_sgid_reported_sex_mapping(cohort)
-    print(f'Sequencing group to reported sex mapping: {sg_reported_sex_mapping}')
 
     mqc_j = b.new_job(title, (job_attrs or {}) | dict(tool='MultiQC'))
     mqc_j.image(image_path('multiqc', '1.30-3'))
@@ -148,12 +145,14 @@ def multiqc(
     assert isinstance(mqc_j.json, ResourceFile)
     jobs: list[Job] = [mqc_j]
     if get_config().get('qc_thresholds'):
+        sg_reported_sex_mapping: dict[str, str] = get_sgid_reported_sex_mapping(cohort)
         check_j = check_report_job(
             b=b,
             multiqc_json_file=mqc_j.json,
             multiqc_html_url=out_html_url,
             rich_id_map=cohort.dataset.rich_id_map(),
             cohort_id=cohort.id,
+            reported_sex_mapping=sg_reported_sex_mapping,
             label=label,
             out_checks_path=out_checks_path,
             job_attrs=job_attrs,
@@ -169,6 +168,7 @@ def check_report_job(
     multiqc_json_file: ResourceFile,
     cohort_id: str,
     multiqc_html_url: str | None = None,
+    reported_sex_mapping: dict[str, str] | None = None,
     label: str | None = None,
     rich_id_map: dict[str, str] | None = None,
     out_checks_path: Path | None = None,
@@ -198,7 +198,8 @@ def check_report_job(
     --cohort-id {cohort_id} \\
     --title "{title}" \\
     --{"no-" if not send_to_slack else ""}send-to-slack \\
-    --failed-samples-path {check_j.output}
+    --failed-samples-path {check_j.output} \\
+    --reported-sex-mapping {reported_sex_mapping}
 
     echo "HTML URL: {multiqc_html_url}"
     """

@@ -48,6 +48,11 @@ logging.getLogger().setLevel(logging.DEBUG)
     'failed_samples_path',
     help='Path to write JSON file with failed samples and their failed metrics',
 )
+@click.option(
+    '--reported-sex-mapping',
+    'reported_sex_mapping',
+    help='JSON string with mapping of CPG IDs to reported sex',
+)
 def main(
     multiqc_json_path: str,
     html_url: str | None = None,
@@ -55,6 +60,7 @@ def main(
     title: str | None = None,
     send_to_slack: bool = True,
     failed_samples_path: str | None = None,
+    reported_sex_mapping: dict[str, int] | None = None,
 ):
     """
     Check metrics in MultiQC json and send info about failed samples
@@ -67,12 +73,18 @@ def main(
         title=title,
         send_to_slack=send_to_slack,
         failed_samples_path=failed_samples_path,
+        reported_sex_mapping=reported_sex_mapping,
     )
 
 QC_MAPPING = {
     'mean_coverage': {
         'multiqc_report_name': 'Average sequenced coverage over genome',
         'display_name': 'Mean Coverage',
+    },
+    'ploidy_estimation': {
+        'calculator': lambda d, sg_id, sex_mapping: d['Ploidy estimation'].count('X') == sex_mapping[sg_id],
+        'multiqc_report_name': 'Ploidy estimation',
+        'display_name': 'Ploidy Estimation',
     },
     'pct_genome_gt_20x': {
         'multiqc_report_name': 'wgs pct of genome with coverage [20x:inf)',
@@ -99,7 +111,7 @@ QC_MAPPING = {
         'display_name': 'Duplication Rate (%)',
     },
     'chimera_rate': {
-        'calculator': lambda d: d.get('Supplementary (chimeric) alignments', 0) / d.get('Total alignments', 1),
+        'calculator': lambda d, _, __: d['Supplementary (chimeric) alignments'] / d['Total alignments'],
         'display_name': 'Chimera Rate',
     },
     'mean_insert_size': {
@@ -131,6 +143,8 @@ def build_qc_thresholds(seq_type: str, config_key: str) -> dict[str, dict]:
         contamination_verifybamid = 0.05
         contamination_dragen = 0.03
         chimera_rate = 0.03
+        [qc_thresholds.genome.equality]
+        ploidy_estimation = True
     """
     threshold_d = get_config()['qc_thresholds'].get(seq_type, {}).get(config_key, {})
     qc_thresholds = {}
@@ -160,6 +174,7 @@ def run(
     title: str | None = None,
     send_to_slack: bool = True,
     failed_samples_path: str | None = None,
+    reported_sex_mapping: dict[str, int] | None = None,
 ):
     seq_type = get_config()['workflow']['sequencing_type']
 
@@ -168,20 +183,22 @@ def run(
         sections = d['report_general_stats_data']
 
     bad_lines_by_sample = defaultdict(list)
-    for min_or_max, fail_sign, good_sign, is_fail in [
-        ('min', '<', '≥', lambda val_, thresh_: val_ < thresh_),
-        ('max', '>', '≤', lambda val_, thresh_: val_ > thresh_),
+    for check_type, fail_sign, good_sign, is_fail in [
+        ('min', '<', '≥', lambda val, thresh: val < thresh),
+        ('max', '>', '≤', lambda val, thresh: val > thresh),
+        ('equality', '!=', '==', lambda val, thresh: val != thresh),
     ]:
-        threshold_d = build_qc_thresholds(seq_type, min_or_max)
-        logging.info(f'{min_or_max} thresholds: {pprint.pformat(threshold_d)}')
+        threshold_d = build_qc_thresholds(seq_type, check_type)
+        logging.info(f'{check_type} thresholds: {pprint.pformat(threshold_d)}')
         for section_data in sections.values():
             for sg_id, val_by_metric in section_data.items():
                 for metric_config in threshold_d.values():
                     val = None
                     # DRAGEN does not provide pct chimeras directly, so we calculate it
+                    # Also, ploidy estimation needs custom calculation
                     if 'calculator' in metric_config:
                         try:
-                            val = metric_config['calculator'](val_by_metric)
+                            val = metric_config['calculator'](val_by_metric, sg_id, reported_sex_mapping)
                         except (KeyError, ZeroDivisionError):
                             continue
                     elif 'multiqc_report_name' in metric_config:
@@ -194,11 +211,19 @@ def run(
                     display_name = metric_config['display_name']
 
                     if is_fail(val, threshold):
-                        line = f'{display_name}={val:.4f} {fail_sign} {threshold:.4f}'
+                        if isinstance(val, bool):
+                            line = f'{display_name} is {val} (expected {threshold})'
+                        else:
+                            line = f'{display_name}={val:.4f} {fail_sign} {threshold:.4f}'
+
                         bad_lines_by_sample[sg_id].append(line)
                         logging.warning(f'❗ {sg_id}: {line}')
                     else:
-                        line = f'{display_name}={val:.4f} {good_sign} {threshold:.4f}'
+                        if isinstance(val, bool):
+                            line = f'{display_name} is {val} (expected {threshold})'
+                        else:
+                            line = f'{display_name}={val:.4f} {good_sign} {threshold:.4f}'
+
                         logging.info(f'✅ {sg_id}: {line}')
     logging.info('')
 
