@@ -200,7 +200,7 @@ def check_report_job(
     --title "{title}" \\
     --{"no-" if not send_to_slack else ""}send-to-slack \\
     --failed-samples-path {check_j.output} \\
-    --reported-sex-mapping {json.dumps(reported_sex_mapping)}
+    --reported-sex-mapping '{json.dumps(reported_sex_mapping)}'
 
     echo "HTML URL: {multiqc_html_url}"
     """
