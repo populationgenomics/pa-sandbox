@@ -46,7 +46,7 @@ def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
             mapping[sg['id']] = sg['sample']['participant']['reportedSex']
     return mapping
 
-def update_sg_failed_metrics(sg: SequencingGroup, meta_to_update: Job, cohort: Cohort):
+def update_sg_failed_metrics(meta_to_update: Job, cohort: Cohort):
     cohort_sgs: list[SequencingGroup] = cohort.get_sequencing_groups()
     try:
         failed_samples: dict[str, list[str]] = json.loads(meta_to_update)
