@@ -60,7 +60,7 @@ def main(
     title: str | None = None,
     send_to_slack: bool = True,
     failed_samples_path: str | None = None,
-    reported_sex_mapping: dict[str, int] | None = None,
+    reported_sex_mapping: str | None = None,
 ):
     """
     Check metrics in MultiQC json and send info about failed samples
@@ -174,9 +174,12 @@ def run(
     title: str | None = None,
     send_to_slack: bool = True,
     failed_samples_path: str | None = None,
-    reported_sex_mapping: dict[str, int] | None = None,
+    reported_sex_mapping: str | None = None,
 ):
     seq_type = get_config()['workflow']['sequencing_type']
+
+    if reported_sex_mapping:
+        reported_sex_mapping_dict: dict[str, int] = json.loads(reported_sex_mapping)
 
     with to_path(multiqc_json_path).open() as f:
         d = json.load(f)
@@ -198,7 +201,7 @@ def run(
                     # Also, ploidy estimation needs custom calculation
                     if 'calculator' in metric_config:
                         try:
-                            val = metric_config['calculator'](val_by_metric, sg_id, reported_sex_mapping)
+                            val = metric_config['calculator'](val_by_metric, sg_id, reported_sex_mapping_dict)
                         except (KeyError, ZeroDivisionError):
                             continue
                     elif 'multiqc_report_name' in metric_config:
