@@ -7,7 +7,7 @@ import json
 from typing import cast
 
 from cpg_flow.resources import STANDARD
-from cpg_flow.targets import Cohort
+from cpg_flow.targets import Cohort, SequencingGroup
 from cpg_flow.utils import rich_sequencing_group_id_seds
 from cpg_utils import Path, to_path
 from cpg_utils.config import config_retrieve, get_config, image_path
@@ -45,6 +45,9 @@ def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
         for sg in coh   ['sequencingGroups']:
             mapping[sg['id']] = sg['sample']['participant']['reportedSex']
     return mapping
+
+def update_sg_failed_metrics(sg: SequencingGroup, meta_to_update: dict[str]):
+    pass
 
 def multiqc(
     b: Batch,
@@ -145,6 +148,7 @@ def multiqc(
 
     assert isinstance(mqc_j.json, ResourceFile)
     jobs: list[Job] = [mqc_j]
+    check_j: Job | None = None
     if get_config().get('qc_thresholds'):
         sg_reported_sex_mapping: dict[str, str] = get_sgid_reported_sex_mapping(cohort)
         check_j = check_report_job(
@@ -161,6 +165,17 @@ def multiqc(
         )
         check_j.depends_on(mqc_j)
         jobs.append(check_j)
+    if check_j:
+        cohort_sgs: list[SequencingGroup] = cohort.get_sequencing_groups()
+        try:
+            failed_samples: dict[str, list[str]] = json.loads(check_j.output)
+            print(f'Failed samples: {failed_samples}')
+            with open(check_j.output) as fh:
+                failed_samples = json.load(fh)
+            print(f'Failed samples: {failed_samples}')
+        except json.JSONDecodeError:
+            print(f'Failed to decode JSON from {check_j.output}. No failed samples registered.')
+
     return jobs
 
 

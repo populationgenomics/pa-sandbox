@@ -22,6 +22,7 @@ Each Stage should be a Class, and should inherit from one of
 """
 
 import dataclasses
+import json
 import logging
 from collections.abc import Callable
 
@@ -298,12 +299,21 @@ class DragenCramMultiQC(CohortStage):
         )
         return self.make_outputs(cohort, data=self.expected_outputs(cohort), jobs=jobs)
 @stage(required_stages=[DragenCramMultiQC], analysis_type='qc', analysis_keys=['json'])
-class DragenCheckMiltiQC(CohortStage):
+class RegisterDragenSampleFailures(CohortStage):
     """
     Check MultiQC report against defined thresholds.
     """
 
     def expected_outputs(self, cohort: Cohort) -> dict[str, Path]:
         return {
-            'checks': cohort.dataset.prefix() / 'qc' / 'cram' / cohort.id / '.cohort_checks',
+            'checks': cohort.dataset.prefix() / 'qc' / 'cram' / cohort.id / '.cohort_checks_registered',
         }
+
+    def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
+
+        cohort_sgs: list[SequencingGroup] = cohort.get_sequencing_groups()
+        mqc_checks = json.loads(inputs.as_path(cohort, DragenCramMultiQC, key='checks'))
+
+        return
+
+
