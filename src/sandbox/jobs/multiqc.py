@@ -13,7 +13,7 @@ from cpg_utils import Path, to_path
 from cpg_utils.config import config_retrieve, get_config, image_path
 from cpg_utils.hail_batch import command, copy_common_env
 from hailtop.batch import Batch, ResourceFile
-from hailtop.batch.job import Job
+from hailtop.batch.job import Job, PythonJob
 from metamist.graphql import gql, query
 
 from sandbox.jobs import check_multiqc
@@ -46,8 +46,18 @@ def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
             mapping[sg['id']] = sg['sample']['participant']['reportedSex']
     return mapping
 
-def update_sg_failed_metrics(sg: SequencingGroup, meta_to_update: dict[str]):
-    pass
+def update_sg_failed_metrics(sg: SequencingGroup, meta_to_update: Job, cohort: Cohort):
+    cohort_sgs: list[SequencingGroup] = cohort.get_sequencing_groups()
+    try:
+        failed_samples: dict[str, list[str]] = json.loads(meta_to_update)
+        print(f'Failed samples: {failed_samples}')
+        with open(meta_to_update) as fh:
+            failed_samples = json.load(fh)
+        print(f'Failed samples: {failed_samples}')
+    except json.JSONDecodeError:
+        print(f'Failed to decode JSON from {meta_to_update}. No failed samples registered.')
+
+    return failed_samples
 
 def multiqc(
     b: Batch,
@@ -166,15 +176,15 @@ def multiqc(
         check_j.depends_on(mqc_j)
         jobs.append(check_j)
     if check_j:
-        cohort_sgs: list[SequencingGroup] = cohort.get_sequencing_groups()
-        try:
-            failed_samples: dict[str, list[str]] = json.loads(check_j.output)
-            print(f'Failed samples: {failed_samples}')
-            with open(check_j.output) as fh:
-                failed_samples = json.load(fh)
-            print(f'Failed samples: {failed_samples}')
-        except json.JSONDecodeError:
-            print(f'Failed to decode JSON from {check_j.output}. No failed samples registered.')
+        register_j: PythonJob = b.new_python_job('Register MultiQC failed metrics')
+        register_j.image(config_retrieve(['workflow', 'driver_image']))
+        register_j.call(
+            update_sg_failed_metrics,
+            check_j.output,
+            cohort,
+        )
+        register_j.depends_on(check_j)
+        jobs.append(register_j)
 
     return jobs
 
