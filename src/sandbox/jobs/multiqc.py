@@ -250,7 +250,7 @@ def multiqc(
         cohort,
     )
     if check_j:
-        register_qc_j.depends_on([mqc_j, check_j])
+        register_qc_j.depends_on(mqc_j, check_j)
     else:
         register_qc_j.depends_on(mqc_j)
     jobs.append(register_qc_j)
