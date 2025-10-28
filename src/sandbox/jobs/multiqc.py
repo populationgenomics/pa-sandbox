@@ -35,6 +35,11 @@ REPORTED_SEX_QUERY = gql(
 """,
 )
 
+UPDATE_SG_QC_META = gql(
+    """
+    """
+)
+
 def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
     """
     Get a mapping of sequencing group ID to reported sex.
@@ -46,16 +51,76 @@ def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
             mapping[sg['id']] = sg['sample']['participant']['reportedSex']
     return mapping
 
-def update_sg_failed_metrics(meta_to_update: Job, cohort: Cohort):
+def build_sg_multiqc_meta_dict(multiqc_json: ResourceFile) -> dict[str, dict]:
+    """
+    Build a dictionary mapping sequencing group IDs to their MultiQC metrics.
+    """
+    metric_map = [
+        # Contamination
+        ('freemix', 'verifybamid', 'FREEMIX'),
+        ('contamination_dragen', 'DRAGEN', 'Estimated sample contamination'),
+
+        # Coverage & Yield
+        ('mean_coverage', 'DRAGEN', 'Average sequenced coverage over genome'),
+        ('median_coverage', 'DRAGEN_5', 'wgs median autosomal coverage over genome'),
+        ('pct_genome_20x', 'DRAGEN_5', 'wgs pct of genome with coverage [20x:inf)'),
+        ('pct_q30_bases', 'DRAGEN', 'Q30 bases pct'),
+
+        # Alignment & Library Quality
+        ('pct_mapped_reads', 'DRAGEN', 'Mapped reads pct'),
+        ('pct_duplicate_reads', 'DRAGEN', 'Number of duplicate marked reads pct'),
+        ('mean_insert_size', 'DRAGEN', 'Insert length: mean'),
+        ('std_dev_insert_size', 'DRAGEN', 'Insert length: standard deviation'),
+        ('avg_gc_content', 'dragen-fastqc', 'avg_gc_content_percent'),
+
+        # Sex & Ploidy
+        ('ploidy_estimation', 'DRAGEN_4', 'Ploidy estimation'),
+        ('norm_x_coverage', 'DRAGEN_4', 'X median / Autosomal median'),
+        ('norm_y_coverage', 'DRAGEN_4', 'Y median / Autosomal median'),
+
+        # Variant QC
+        ('ti_tv_ratio', 'DRAGEN_3', 'Ti/Tv ratio'),
+        ('het_hom_ratio', 'DRAGEN_3', 'Het/Hom ratio'),
+    ]
+
+    with open(multiqc_json) as f:
+        multiqc_json = json.load(f)
+        print(multiqc_json)
+        multiqc_json = multiqc_json['report_general_stats_data']
+
+    extracted_data = {}
+    # Get a list of all CPG IDs from one of the tools
+    sample_ids = list(multiqc_json.get('verifybamid', {}).keys())
+    if not sample_ids:
+        # Fallback if 'verifybamid' is missing
+        sample_ids = list(multiqc_json.get('DRAGEN', {}).keys())
+
+    if not sample_ids:
+        print("Error: Could not find any sample IDs in the data.")
+
+    for cpg_id in sample_ids:
+        sample_metrics = {}
+        for out_key, tool_key, metric_key in metric_map:
+            try:
+                value = multiqc_json[tool_key][cpg_id][metric_key]
+                sample_metrics[out_key] = value
+            except (KeyError, TypeError):
+                # Use None if the metric is missing for this sample
+                sample_metrics[out_key] = None
+
+        extracted_data[cpg_id] = sample_metrics
+
+    return extracted_data
+
+def update_sg_qc_metrics(failed_meta: ResourceFile | None, meta_to_update: ResourceFile, cohort: Cohort):
     cohort_sgs: list[SequencingGroup] = cohort.get_sequencing_groups()
+    meta_to_update = build_sg_multiqc_meta_dict(meta_to_update)
     try:
-        failed_samples: dict[str, list[str]] = json.loads(meta_to_update)
-        print(f'Failed samples: {failed_samples}')
-        with open(meta_to_update) as fh:
-            failed_samples = json.load(fh)
+        with open(failed_meta) as fh:
+            failed_samples: dict[str, list[str]] = json.load(fh)
         print(f'Failed samples: {failed_samples}')
     except json.JSONDecodeError:
-        print(f'Failed to decode JSON from {meta_to_update}. No failed samples registered.')
+        print(f'Failed to decode JSON from {failed_meta}. No failed samples registered.')
 
     return failed_samples
 
@@ -175,16 +240,20 @@ def multiqc(
         )
         check_j.depends_on(mqc_j)
         jobs.append(check_j)
+
+    register_qc_j: PythonJob = b.new_python_job('Register MultiQC results in Metamist')
+    register_qc_j.image(config_retrieve(['workflow', 'driver_image']))
+    register_qc_j.call(
+        update_sg_qc_metrics,
+        check_j.output if check_j else None,
+        mqc_j.json,
+        cohort,
+    )
     if check_j:
-        register_j: PythonJob = b.new_python_job('Register MultiQC failed metrics')
-        register_j.image(config_retrieve(['workflow', 'driver_image']))
-        register_j.call(
-            update_sg_failed_metrics,
-            check_j.output,
-            cohort,
-        )
-        register_j.depends_on(check_j)
-        jobs.append(register_j)
+        register_qc_j.depends_on([mqc_j, check_j])
+    else:
+        register_qc_j.depends_on(mqc_j)
+    jobs.append(register_qc_j)
 
     return jobs
 
