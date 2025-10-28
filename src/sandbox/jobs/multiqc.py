@@ -144,7 +144,8 @@ def update_sg_qc_metrics(failed_meta: ResourceFile | None, meta_to_update: Resou
         print(f'Failed samples: {failed_samples}')
         print(f'meta to update: {meta_to_update}')
         for sg in cohort_sgs:
-            sg_meta = meta_to_update.get(sg.id, {})
+            sg_meta ={}
+            sg_meta['qc'] = meta_to_update.get(sg.id, {})
             sg_meta['qc']['qc_checks_failed'] = failed_samples.get(sg.id, []) if sg.id in failed_samples else []
             print(f'Updating SG {sg.id} with meta: {sg_meta}')
             result_update_mutation = query(
