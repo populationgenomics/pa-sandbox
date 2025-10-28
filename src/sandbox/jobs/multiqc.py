@@ -151,7 +151,7 @@ def update_sg_qc_metrics(failed_meta: ResourceFile | None, meta_to_update: Resou
             result_update_mutation = query(
                 MUTATION_SEQUENCING_GROUP,
                 variables={
-                    'project': cohort.dataset.name,
+                    'project': f'{cohort.dataset.name}-test',
                     'sequencingGroup': {
                         'id': sg.id,
                         'meta': sg_meta,
