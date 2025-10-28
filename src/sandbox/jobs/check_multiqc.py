@@ -82,7 +82,12 @@ QC_MAPPING = {
         'display_name': 'Mean Coverage',
     },
     'ploidy_estimation': {
-        'calculator': lambda d, sg_id, sex_mapping: d['Ploidy estimation'].count('X') == sex_mapping[sg_id],
+        'calculator': (
+            lambda d, sg_id, sex_mapping: (
+                d['Ploidy estimation'].count('X') == sex_mapping[sg_id],
+                sex_mapping[sg_id],
+            )
+        ),
         'multiqc_report_name': 'Ploidy estimation',
         'display_name': 'Ploidy Estimation',
     },
@@ -111,7 +116,12 @@ QC_MAPPING = {
         'display_name': 'Duplication Rate (%)',
     },
     'chimera_rate': {
-        'calculator': lambda d, _, __: d['Supplementary (chimeric) alignments'] / d['Total alignments'],
+        'calculator': (
+            lambda d, _, __: (
+                d['Supplementary (chimeric) alignments'] / d['Total alignments'],
+                _,
+            )
+        ),
         'display_name': 'Chimera Rate',
     },
     'mean_insert_size': {
@@ -201,7 +211,7 @@ def run(
                     # Also, ploidy estimation needs custom calculation
                     if 'calculator' in metric_config:
                         try:
-                            val = metric_config['calculator'](val_by_metric, sg_id, reported_sex_mapping_dict)
+                            val, expected = metric_config['calculator'](val_by_metric, sg_id, reported_sex_mapping_dict)
                         except (KeyError, ZeroDivisionError):
                             continue
                     elif 'multiqc_report_name' in metric_config:
@@ -215,7 +225,7 @@ def run(
 
                     if is_fail(val, threshold):
                         if isinstance(val, bool):
-                            line = f'{display_name} is {val} (expected {threshold})'
+                            line = f'{display_name} is {val_by_metric[metric_config["multiqc_report_name"]]} (expected {expected})'
                         else:
                             line = f'{display_name}={val:.4f} {fail_sign} {threshold:.4f}'
 
@@ -223,7 +233,7 @@ def run(
                         logging.warning(f'❗ {sg_id}: {line}')
                     else:
                         if isinstance(val, bool):
-                            line = f'{display_name} is {val} (expected {threshold})'
+                            line = f'{display_name} is {val_by_metric[metric_config["multiqc_report_name"]]} (expected {expected})'
                         else:
                             line = f'{display_name}={val:.4f} {good_sign} {threshold:.4f}'
 
