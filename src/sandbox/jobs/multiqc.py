@@ -35,10 +35,32 @@ REPORTED_SEX_QUERY = gql(
 """,
 )
 
-# UPDATE_SG_QC_META = gql(
-#     """
-#     """
-# )
+MUTATION_DEACTIVATE_SGS = gql(
+    """
+    mutation MyMutation($sequencingGroupsToDeactivate: [String!]!) {
+        sequencingGroup {
+            archiveSequencingGroups(sequencingGroupIds: $sequencingGroupsToDeactivate) {
+            archived
+            id
+            }
+        }
+    }
+"""
+)
+
+MUTATION_SEQUENCING_GROUP = gql(
+    """
+    mutation MyMutation($project: String!, $sequencingGroup: SequencingGroupMetaUpdateInput!) {
+        sequencingGroup {
+            updateSequencingGroup(project: $project, sequencingGroup: $sequencingGroup) {
+                id
+                meta
+            }
+        }
+    }
+    """
+)
+
 
 def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
     """
@@ -115,10 +137,37 @@ def build_sg_multiqc_meta_dict(multiqc_json: ResourceFile) -> dict[str, dict]:
 def update_sg_qc_metrics(failed_meta: ResourceFile | None, meta_to_update: ResourceFile, cohort: Cohort):
     cohort_sgs: list[SequencingGroup] = cohort.get_sequencing_groups()
     meta_to_update = build_sg_multiqc_meta_dict(meta_to_update)
+    # check_j.output (failed_meta) may not exist if qc_thresholds not set in config
     try:
         with open(failed_meta) as fh:
             failed_samples: dict[str, list[str]] = json.load(fh)
         print(f'Failed samples: {failed_samples}')
+        print(f'meta to update: {meta_to_update}')
+        for sg in cohort_sgs:
+            sg_meta = meta_to_update.get(sg.id, {})
+            sg_meta['qc']['qc_checks_failed'] = failed_samples.get(sg.id, []) if sg.id in failed_samples else []
+            print(f'Updating SG {sg.id} with meta: {sg_meta}')
+            result_update_mutation = query(
+                MUTATION_SEQUENCING_GROUP,
+                variables={
+                    'project': cohort.dataset.name,
+                    'sequencingGroup': {
+                        'id': sg.id,
+                        'meta': sg_meta,
+                    },
+                },
+            )
+            print(f'Updated SG {sg.id}: {result_update_mutation}')
+
+
+        # Deactivate sequencing groups that failed QC
+        # print(f'Deactivating failed samples: {list(failed_samples.keys())}')
+        # result_mutation = query(
+        #     MUTATION_DEACTIVATE_SGS,
+        #     variables={'sequencingGroupsToDeactivate': list(failed_samples.keys())},
+        # )['sequencingGroup']['archiveSequencingGroups']
+        # print(f'Deactivated sequencing groups: {result_mutation}')
+
     except json.JSONDecodeError:
         print(f'Failed to decode JSON from {failed_meta}. No failed samples registered.')
 
