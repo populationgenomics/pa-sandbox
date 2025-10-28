@@ -35,10 +35,10 @@ REPORTED_SEX_QUERY = gql(
 """,
 )
 
-UPDATE_SG_QC_META = gql(
-    """
-    """
-)
+# UPDATE_SG_QC_META = gql(
+#     """
+#     """
+# )
 
 def get_sgid_reported_sex_mapping(cohort: Cohort) -> dict[str, str]:
     """
