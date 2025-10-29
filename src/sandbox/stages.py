@@ -39,7 +39,7 @@ from cpg_flow.stage import (
 from cpg_flow.targets import Cohort, Dataset, SequencingGroup
 from cpg_flow.utils import exists
 from cpg_utils import Path, to_path
-from cpg_utils.config import config_retrieve
+from cpg_utils.config import config_retrieve, dataset_path
 from cpg_utils.hail_batch import get_batch
 
 from sandbox.jobs import somalier, verifybamid
@@ -76,7 +76,6 @@ def qc_functions() -> list[Qc]:
         return []
 
     return [
-        Qc(func=somalier.extract, outs={'somalier': None}),
         Qc(
             func=verifybamid.verifybamid,
             outs={'verify_bamid': QcOut('.verify-bamid.selfSM', 'verifybamid/selfsm')},
@@ -94,11 +93,7 @@ class DragenCramQC(SequencingGroupStage):
         outs = {}
         for qc in qc_functions():
             for key, out in qc.outs.items():
-                if key == 'somalier':
-                    # Somalier outputs will be written to self.dataset.prefix() / 'cram' / f'{self.id}.cram.somalier' regardless of input cram path.
-                    outs[key] = sequencing_group.dataset.prefix() / dragen_prefix / key / f'{sequencing_group.id}.somalier'
-                elif out:
-                    outs[key] = sequencing_group.dataset.prefix() / dragen_prefix / key / f'{sequencing_group.id}{out.suf}'
+                outs[key] = sequencing_group.dataset.prefix() / dragen_prefix / key / f'{sequencing_group.id}{out.suf}'
         return outs
 
     def queue_jobs(self, sequencing_group: SequencingGroup, inputs: StageInput) -> StageOutput | None:
@@ -169,7 +164,7 @@ class SomalierPedigree(DatasetStage):
                     )
                 else:
                     verifybamid_by_sgid[sequencing_group.id] = verify_bamid_path
-            somalier_path = inputs.as_path(stage=DragenCramQC, target=sequencing_group, key='somalier')
+            somalier_path = dataset_path(f'ica/dragen_3_7_8/output/somalier/{sequencing_group.id}.somalier')
             somalier_path_by_sgid[sequencing_group.id] = somalier_path
 
         html_path = self.expected_outputs(dataset)['html']
@@ -210,9 +205,9 @@ class DragenCramMultiQC(CohortStage):
         """
         dragen_prefix = 'ica/dragen_3_7_8/qc'
         return {
-            'html': cohort.dataset.web_prefix() / dragen_prefix/ cohort.id / 'multiqc' / 'cohort_multiqc.html',
-            'json': cohort.dataset.prefix() / dragen_prefix/ cohort.id / 'multiqc' / 'cohort_multiqc_data.json',
-            'checks': cohort.dataset.prefix() / dragen_prefix/ cohort.id / 'multiqc' / '.cohort_checks',
+            'html': cohort.dataset.web_prefix() / dragen_prefix / cohort.id / 'multiqc' / 'cohort_multiqc.html',
+            'json': cohort.dataset.prefix() / dragen_prefix / cohort.id / 'multiqc' / 'cohort_multiqc_data.json',
+            'checks': cohort.dataset.prefix() / dragen_prefix / cohort.id / 'multiqc' / '.cohort_checks',
         }
 
     def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
@@ -234,7 +229,7 @@ class DragenCramMultiQC(CohortStage):
         cohort_sgs = cohort.get_sequencing_groups()
 
         dragen_metrics_paths: list[Path] = [
-            to_path(f'gs://cpg-bioheart-test/ica/dragen_3_7_8/output/dragen_metrics/{sg.id}')
+            to_path(dataset_path(f'ica/dragen_3_7_8/output/dragen_metrics/{sg.id}'))
             for sg in cohort_sgs
             ]
         paths = []
