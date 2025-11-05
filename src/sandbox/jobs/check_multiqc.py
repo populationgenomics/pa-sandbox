@@ -11,7 +11,6 @@ a channel with:
 /invite @Seqr Loader
 """
 import json
-import pprint
 from collections import defaultdict
 
 import click
@@ -208,7 +207,6 @@ def run(
         ('equality', '!=', '==', lambda val, thresh: val != thresh),
     ]:
         threshold_d = build_qc_thresholds(seq_type, check_type)
-        logger.info(f'{check_type} thresholds: {pprint.pformat(threshold_d)}')
         for section_data in sections.values():
             for sg_id, val_by_metric in section_data.items():
                 for metric_config in threshold_d.values():
@@ -255,11 +253,13 @@ def run(
     num_failed = len(bad_lines_by_sample)
     high_failure_message = None
     if num_sgs and num_failed / num_sgs > 0.05:
+        failure_percent = (num_failed / num_sgs) * 100
         high_failure_message = (
-            f'🚨 High number of failed samples 🚨: {num_failed} out of {num_sgs} '
-            f'({(num_failed / num_sgs) * 100:.2f}%)'
+            '=================================\n'
+            '🚨 ALERT: High QC Failure Rate 🚨\n'
+            '=================================\n'
+            f'**Failure Rate:** {num_failed} out of {num_sgs} ({failure_percent:.2f}%)'
         )
-        logger.warning(high_failure_message)
 
     # Constructing Slack message
     if cohort_id and html_url:
