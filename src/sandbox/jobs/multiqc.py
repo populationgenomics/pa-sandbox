@@ -14,6 +14,7 @@ from cpg_utils.config import config_retrieve, get_config, image_path
 from cpg_utils.hail_batch import command, copy_common_env
 from hailtop.batch import Batch, ResourceFile
 from hailtop.batch.job import Job, PythonJob
+from loguru import logger
 from metamist.graphql import gql, query
 
 from sandbox.jobs import check_multiqc
@@ -107,7 +108,6 @@ def build_sg_multiqc_meta_dict(multiqc_json: ResourceFile) -> dict[str, dict]:
 
     with open(multiqc_json) as f:
         multiqc_json = json.load(f)
-        print(multiqc_json)
         multiqc_json = multiqc_json['report_general_stats_data']
 
     extracted_data = {}
@@ -118,7 +118,7 @@ def build_sg_multiqc_meta_dict(multiqc_json: ResourceFile) -> dict[str, dict]:
         sample_ids = list(multiqc_json.get('DRAGEN', {}).keys())
 
     if not sample_ids:
-        print("Error: Could not find any sample IDs in the data.")
+        logger.error("Error: Could not find any sample IDs in the data.")
 
     for cpg_id in sample_ids:
         sample_metrics = {}
@@ -141,13 +141,13 @@ def update_sg_qc_metrics(failed_meta: ResourceFile | None, meta_to_update: Resou
     try:
         with open(failed_meta) as fh:
             failed_samples: dict[str, list[str]] = json.load(fh)
-        print(f'Failed samples: {failed_samples}')
-        print(f'meta to update: {meta_to_update}')
+        logger.warning(f'Failed samples: {failed_samples}')
+        logger.warning(f'meta to update: {meta_to_update}')
         for sg in cohort_sgs:
             sg_meta ={}
             sg_meta['qc'] = meta_to_update.get(sg.id, {})
             sg_meta['qc']['qc_checks_failed'] = failed_samples.get(sg.id, []) if sg.id in failed_samples else []
-            print(f'Updating SG {sg.id} with meta: {sg_meta}')
+            logger.warning(f'Updating SG {sg.id} with meta: {sg_meta}')
             result_update_mutation = query(
                 MUTATION_SEQUENCING_GROUP,
                 variables={
@@ -158,19 +158,19 @@ def update_sg_qc_metrics(failed_meta: ResourceFile | None, meta_to_update: Resou
                     },
                 },
             )
-            print(f'Updated SG {sg.id}: {result_update_mutation}')
-
+            logger.warning(f'Updated SG {sg.id}: {result_update_mutation}')
 
         # Deactivate sequencing groups that failed QC
-        # print(f'Deactivating failed samples: {list(failed_samples.keys())}')
-        # result_mutation = query(
-        #     MUTATION_DEACTIVATE_SGS,
-        #     variables={'sequencingGroupsToDeactivate': list(failed_samples.keys())},
-        # )['sequencingGroup']['archiveSequencingGroups']
-        # print(f'Deactivated sequencing groups: {result_mutation}')
+        if get_config()['workflow']['multiqc'].get('deactivate_sgs', False):
+            logger.warning(f'Deactivating failed samples: {list(failed_samples.keys())}')
+            result_mutation = query(
+                MUTATION_DEACTIVATE_SGS,
+                variables={'sequencingGroupsToDeactivate': list(failed_samples.keys())},
+            )['sequencingGroup']['archiveSequencingGroups']
+            logger.warning(f'Deactivated sequencing groups: {result_mutation}')
 
     except json.JSONDecodeError:
-        print(f'Failed to decode JSON from {failed_meta}. No failed samples registered.')
+        logger.error(f'Failed to decode JSON from {failed_meta}. No failed samples registered.')
 
     return failed_samples
 
@@ -282,6 +282,7 @@ def multiqc(
             multiqc_html_url=out_html_url,
             rich_id_map=cohort.dataset.rich_id_map(),
             cohort_id=cohort.id,
+            num_sgs=len(cohort.get_sequencing_groups()),
             reported_sex_mapping=sg_reported_sex_mapping,
             label=label,
             out_checks_path=out_checks_path,
@@ -312,6 +313,7 @@ def check_report_job(
     b: Batch,
     multiqc_json_file: ResourceFile,
     cohort_id: str,
+    num_sgs: int,
     multiqc_html_url: str | None = None,
     reported_sex_mapping: dict[str, str] | None = None,
     label: str | None = None,
@@ -344,7 +346,8 @@ def check_report_job(
     --title "{title}" \\
     --{"no-" if not send_to_slack else ""}send-to-slack \\
     --failed-samples-path {check_j.output} \\
-    --reported-sex-mapping '{json.dumps(reported_sex_mapping)}'
+    --reported-sex-mapping '{json.dumps(reported_sex_mapping)}' \\
+    --num-sgs {num_sgs}
 
     echo "HTML URL: {multiqc_html_url}"
     """

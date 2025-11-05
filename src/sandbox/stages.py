@@ -22,7 +22,6 @@ Each Stage should be a Class, and should inherit from one of
 """
 
 import dataclasses
-import json
 import logging
 from collections.abc import Callable
 
@@ -243,7 +242,7 @@ class DragenCramMultiQC(CohortStage):
         ending_to_trim = set()  # endings to trim to get sample names
         modules_to_trim_endings = set()
 
-        for sequencing_group in cohort.get_sequencing_groups():
+        for sequencing_group in cohort_sgs:
             for qc in qc_functions():
                 for key, out in qc.outs.items():
                     if not out:
@@ -266,8 +265,8 @@ class DragenCramMultiQC(CohortStage):
             logging.warning('No CRAM QC found to aggregate with MultiQC')
             return self.make_outputs(cohort)
 
-        send_to_slack = config_retrieve(['workflow', 'cram_multiqc', 'send_to_slack'], default=True)
-        extra_config = config_retrieve(['workflow', 'cram_multiqc', 'extra_config'], default={})
+        send_to_slack = config_retrieve(['workflow', 'multiqc', 'send_to_slack'], default=True)
+        extra_config = config_retrieve(['workflow', 'multiqc', 'extra_config'], default={})
         extra_config['table_columns_visible'] = {'FastQC': False}
 
         jobs = multiqc(
@@ -288,22 +287,4 @@ class DragenCramMultiQC(CohortStage):
             extra_config=extra_config,
         )
         return self.make_outputs(cohort, data=self.expected_outputs(cohort), jobs=jobs)
-@stage(required_stages=[DragenCramMultiQC], analysis_type='qc', analysis_keys=['json'])
-class RegisterDragenSampleFailures(CohortStage):
-    """
-    Check MultiQC report against defined thresholds.
-    """
-
-    def expected_outputs(self, cohort: Cohort) -> dict[str, Path]:
-        return {
-            'checks': cohort.dataset.prefix() / 'qc' / 'cram' / cohort.id / '.cohort_checks_registered',
-        }
-
-    def queue_jobs(self, cohort: Cohort, inputs: StageInput) -> StageOutput | None:
-
-        cohort_sgs: list[SequencingGroup] = cohort.get_sequencing_groups()
-        mqc_checks = json.loads(inputs.as_path(cohort, DragenCramMultiQC, key='checks'))
-
-        return
-
 

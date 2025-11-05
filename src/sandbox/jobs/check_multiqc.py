@@ -11,7 +11,6 @@ a channel with:
 /invite @Seqr Loader
 """
 import json
-import logging
 import pprint
 from collections import defaultdict
 
@@ -19,9 +18,7 @@ import click
 from cpg_utils import to_path
 from cpg_utils.config import get_config
 from cpg_utils.slack import send_message
-
-logging.basicConfig()
-logging.getLogger().setLevel(logging.DEBUG)
+from loguru import logger
 
 
 @click.command()
@@ -53,6 +50,12 @@ logging.getLogger().setLevel(logging.DEBUG)
     'reported_sex_mapping',
     help='JSON string with mapping of CPG IDs to reported sex',
 )
+@click.option(
+    '--num-sgs',
+    'num_sgs',
+    type=int,
+    help='Total number of sequencing groups in the cohort',
+)
 def main(
     multiqc_json_path: str,
     html_url: str | None = None,
@@ -61,6 +64,7 @@ def main(
     send_to_slack: bool = True,
     failed_samples_path: str | None = None,
     reported_sex_mapping: str | None = None,
+    num_sgs: int | None = None,
 ):
     """
     Check metrics in MultiQC json and send info about failed samples
@@ -74,6 +78,7 @@ def main(
         send_to_slack=send_to_slack,
         failed_samples_path=failed_samples_path,
         reported_sex_mapping=reported_sex_mapping,
+        num_sgs=num_sgs,
     )
 
 QC_MAPPING = {
@@ -165,7 +170,7 @@ def build_qc_thresholds(seq_type: str, config_key: str) -> dict[str, dict]:
                 **QC_MAPPING[metric],
             }
         else:
-            logging.warning(
+            logger.warning(
                 f"Metric '{metric}' has a threshold but is not defined in QC_MAPPING. "
                 f"Using default names."
             )
@@ -185,6 +190,7 @@ def run(
     send_to_slack: bool = True,
     failed_samples_path: str | None = None,
     reported_sex_mapping: str | None = None,
+    num_sgs: int | None = None,
 ):
     seq_type = get_config()['workflow']['sequencing_type']
 
@@ -202,7 +208,7 @@ def run(
         ('equality', '!=', '==', lambda val, thresh: val != thresh),
     ]:
         threshold_d = build_qc_thresholds(seq_type, check_type)
-        logging.info(f'{check_type} thresholds: {pprint.pformat(threshold_d)}')
+        logger.info(f'{check_type} thresholds: {pprint.pformat(threshold_d)}')
         for section_data in sections.values():
             for sg_id, val_by_metric in section_data.items():
                 for metric_config in threshold_d.values():
@@ -230,20 +236,30 @@ def run(
                             line = f'{display_name}={val:.4f} {fail_sign} {threshold:.4f}'
 
                         bad_lines_by_sample[sg_id].append(line)
-                        logging.warning(f'❗ {sg_id}: {line}')
+                        logger.warning(f'❗ {sg_id}: {line}')
                     else:
                         if isinstance(val, bool):
                             line = f'{display_name} is {val_by_metric[metric_config["multiqc_report_name"]]} (expected {expected})'
                         else:
                             line = f'{display_name}={val:.4f} {good_sign} {threshold:.4f}'
 
-                        logging.info(f'✅ {sg_id}: {line}')
-    logging.info('')
+                        logger.info(f'✅ {sg_id}: {line}')
+    logger.info('')
 
     if bad_lines_by_sample and failed_samples_path:
-        logging.info(f'Writing {len(bad_lines_by_sample)} failed sample(s) to {failed_samples_path}')
+        logger.info(f'Writing {len(bad_lines_by_sample)} failed sample(s) to {failed_samples_path}')
         with to_path(failed_samples_path).open('w') as f:
             json.dump(bad_lines_by_sample, f, indent=2)
+
+    # Check percent of failed samples in cohort and log warning if >5%
+    num_failed = len(bad_lines_by_sample)
+    high_failure_message = None
+    if num_sgs and num_failed / num_sgs > 0.05:
+        high_failure_message = (
+            f'🚨 High number of failed samples 🚨: {num_failed} out of {num_sgs} '
+            f'({(num_failed / num_sgs) * 100:.2f}%)'
+        )
+        logger.warning(high_failure_message)
 
     # Constructing Slack message
     if cohort_id and html_url:
@@ -251,6 +267,9 @@ def run(
     elif not title:
         title = 'MultiQC report'
     messages = []
+    if high_failure_message:
+        messages.append(high_failure_message)
+
     if bad_lines_by_sample:
         messages.append(f'{title}. {len(bad_lines_by_sample)} samples are flagged:')
         for sample, bad_lines in bad_lines_by_sample.items():
@@ -258,7 +277,7 @@ def run(
     else:
         messages.append(f'✅ {title}')
     text = '\n'.join(messages)
-    logging.info(text)
+    logger.info(text)
 
     if send_to_slack:
         send_message(text)
