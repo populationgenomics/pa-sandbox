@@ -46,11 +46,6 @@ from sandbox.jobs import somalier, verifybamid
 from sandbox.jobs.multiqc import multiqc
 
 
-# There are the above QC functionality, but I wonder how many of these metrics
-# that they calculate and output are actually already provided by DRAGEN?
-# If DRAGEN already provides them, then we can skip running these tools again
-# and just use the DRAGEN outputs directly in MultiQC.
-# TODO: DRAGEN provides all of these metrics in its output except VerifyBamID and Somalier.
 @dataclasses.dataclass
 class QcOut:
     """QC output file"""
