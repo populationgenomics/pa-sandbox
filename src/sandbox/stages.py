@@ -282,7 +282,7 @@ class DragenCramMultiQC(CohortStage):
             out_checks_path=checks_path,
             job_attrs=self.get_job_attrs(cohort),
             sequencing_group_id_map=cohort.dataset.rich_id_map(),
-            label='CRAM',
+            label='DRAGEN',
             send_to_slack=send_to_slack,
             extra_config=extra_config,
         )
